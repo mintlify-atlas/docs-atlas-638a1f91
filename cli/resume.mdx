@@ -1,0 +1,182 @@
+---
+title: 'og resume'
+description: 'Resolve checkpoint information for resuming training runs'
+---
+
+## Overview
+
+The `og resume` command resolves checkpoint metadata for a training run, showing which files are available for restoration. The actual checkpoint application is handled by the agent refactor loop.
+
+## Syntax
+
+```bash
+og resume <run-id> [OPTIONS]
+```
+
+## Arguments
+
+<ParamField path="run-id" type="string" required>
+  Run ID to resume (e.g., `run-123`, `experiment-001`)
+</ParamField>
+
+## Options
+
+<ParamField path="--checkpoint" type="string" default="latest">
+  Checkpoint ID or 'latest'
+  
+  **Values:**
+  - `latest` - Use the most recent checkpoint (default)
+  - Checkpoint ID (e.g., `ckpt_1000`, `5000`)
+  
+  **Example:**
+  ```bash
+  og resume run-123 --checkpoint latest
+  og resume run-123 --checkpoint ckpt_1000
+  og resume run-123 --checkpoint 5000
+  ```
+</ParamField>
+
+<ParamField path="--checkpoint-dir" type="path" default=".og_checkpoints">
+  Checkpoint directory root where checkpoint files are stored
+  
+  **Example:**
+  ```bash
+  og resume run-123 --checkpoint-dir checkpoints/
+  ```
+</ParamField>
+
+<ParamField path="--path" type="path" default="runs/">
+  Root runs directory for run-id resolution
+  
+  **Example:**
+  ```bash
+  og resume run-123 --path experiments/
+  ```
+</ParamField>
+
+## Output
+
+### Text Format (Default)
+
+```
+run: runs/run-123
+checkpoint: .og_checkpoints/ckpt_1000
+files: model.pt, optimizer.pt, scheduler.pt
+note: resume metadata resolved; apply/restore is agent-managed.
+```
+
+### JSON Format
+
+Add `--json` flag for structured output:
+
+```bash
+og resume run-123 --json
+```
+
+**Output:**
+```json
+{
+  "command": "resume",
+  "data": {
+    "run_id": "run-123",
+    "run_path": "runs/run-123",
+    "run_exists": true,
+    "checkpoint": "latest",
+    "checkpoint_path": ".og_checkpoints/ckpt_1000",
+    "snapshot_files": [
+      "model.pt",
+      "optimizer.pt",
+      "scheduler.pt"
+    ],
+    "note": "Checkpoint resolution is available. Resume apply/restore is handled by the agent refactor loop."
+  },
+  "text": "run: runs/run-123\ncheckpoint: .og_checkpoints/ckpt_1000\nfiles: model.pt, optimizer.pt, scheduler.pt\nnote: resume metadata resolved; apply/restore is agent-managed."
+}
+```
+
+## Examples
+
+### Resume from Latest Checkpoint
+
+```bash
+# Resolve latest checkpoint for run-123
+og resume run-123
+
+# Explicit latest
+og resume run-123 --checkpoint latest
+```
+
+### Resume from Specific Checkpoint
+
+```bash
+# By checkpoint ID
+og resume run-123 --checkpoint ckpt_1000
+
+# By step number
+og resume run-123 --checkpoint 5000
+```
+
+### Custom Checkpoint Directory
+
+```bash
+# Use custom checkpoint location
+og resume run-123 --checkpoint-dir my_checkpoints/
+```
+
+### With Custom Runs Directory
+
+```bash
+# Resolve from experiments/ directory
+og resume experiment-001 --path experiments/
+```
+
+### Complete Example
+
+```bash
+# Full configuration
+og resume run-123 \
+  --checkpoint ckpt_1000 \
+  --checkpoint-dir .og_checkpoints \
+  --path runs/
+```
+
+## Checkpoint Resolution
+
+The command searches for checkpoints in the following order:
+
+1. **Direct match**: `<checkpoint-dir>/<checkpoint-id>`
+2. **Prefixed match**: `<checkpoint-dir>/ckpt_<checkpoint-id>`
+3. **Latest (if --checkpoint latest)**:
+   - Lists all checkpoint directories
+   - Sorts alphabetically
+   - Returns the last one
+
+## Snapshot Files
+
+The output includes all files in the checkpoint directory except:
+- `state.json` (metadata file, excluded from file list)
+
+Common snapshot files:
+- `model.pt` - Model weights
+- `optimizer.pt` - Optimizer state
+- `scheduler.pt` - Learning rate scheduler state
+- `config.json` - Training configuration
+
+## Exit Codes
+
+- `0` - Success
+- `1` - Run or checkpoint not found
+
+## Notes
+
+- This command only **resolves** checkpoint information
+- Actual checkpoint **restoration** is handled by the agent refactor loop
+- The `run_exists` field indicates whether the target run directory exists
+- Checkpoint files are sorted alphabetically in the output
+- The command does not modify any files
+
+## Related Commands
+
+- [`og run`](/cli/run) - Start a new training run
+- [`og list runs`](/cli/list#list-runs) - List all available runs
+- [`og get run`](/cli/get#get-run) - Get run details

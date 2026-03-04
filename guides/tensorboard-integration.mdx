@@ -1,0 +1,182 @@
+---
+title: TensorBoard Integration
+description: How OpenGraphs reads and displays TensorBoard event files
+---
+
+OpenGraphs natively supports TensorBoard event files, allowing you to visualize metrics logged by TensorBoard without running the TensorBoard server.
+
+## How It Works
+
+OpenGraphs automatically discovers and parses `.tfevents` files in your project directory. The parser extracts scalar metrics from TensorFlow's protobuf event format and displays them in real-time.
+
+### Supported File Formats
+
+OpenGraphs recognizes files matching these patterns:
+
+- `*.tfevents.*` - Standard TensorBoard event files
+- `*.tfevents` - Files ending with tfevents extension
+
+Example filenames:
+```
+events.out.tfevents.1771672979.job-abc123
+model.tfevents
+```
+
+**Note:** Archive files (`.tgz`, `.tar.gz`, `.zip`, `.gz`) are automatically ignored even if they contain "tfevents" in the name.
+
+## Directory Structure
+
+OpenGraphs recursively scans directories to find all event files. You can point it to:
+
+- A single `.tfevents` file
+- A directory containing multiple event files
+- A nested directory structure (e.g., `runs/experiment1/`, `runs/experiment2/`)
+
+Example directory structure:
+```
+runs/
+├── demo/
+│   ├── events.out.tfevents.1234567890.hostname
+│   └── events.out.tfevents.1234567891.hostname
+└── experiment2/
+    └── events.out.tfevents.1234567892.hostname
+```
+
+## Supported Metrics
+
+OpenGraphs extracts **scalar values only** from TensorBoard event files. Other data types (images, histograms, tensors) are skipped.
+
+### Scalar Event Structure
+
+Each scalar event contains:
+
+- **tag** - Metric name (e.g., `"train/loss"`, `"train/accuracy"`)
+- **step** - Training step number (int64)
+- **wall_time** - Wall clock timestamp (seconds since epoch)
+- **value** - Metric value (float64)
+
+## File Format Details
+
+TensorBoard uses a custom record format based on TensorFlow's protocol buffers:
+
+1. **Record Structure** - Each record contains:
+   - `uint64` length (little-endian)
+   - `uint32` masked CRC32C checksum of length
+   - `byte[]` data (protobuf-encoded Event)
+   - `uint32` masked CRC32C checksum of data
+
+2. **Event Protobuf** - Each Event message may contain:
+   - `wall_time` - Timestamp in seconds
+   - `step` - Global step counter
+   - `summary` - Summary data with scalar values
+
+3. **Summary Values** - Each summary contains:
+   - `tag` - Metric identifier
+   - `simple_value` - Float32 scalar value
+
+OpenGraphs handles CRC validation and protobuf decoding automatically.
+
+## Usage with TensorBoard Writers
+
+You can use OpenGraphs alongside existing TensorBoard logging code:
+
+### PyTorch
+
+```python
+from torch.utils.tensorboard import SummaryWriter
+
+writer = SummaryWriter(log_dir="runs/experiment")
+
+for step in range(100):
+    loss = train_step()
+    writer.add_scalar("train/loss", loss, step)
+    writer.flush()
+```
+
+### TensorBoardX
+
+```python
+from tensorboardX import SummaryWriter
+
+writer = SummaryWriter(log_dir="runs/experiment")
+
+for step in range(100):
+    loss = train_step()
+    writer.add_scalar("train/loss", loss, step)
+    writer.flush()
+```
+
+### Real Example
+
+From `demo_train.py`:
+
+```python
+import os
+
+def get_tb_writer():
+    log_dir = os.getenv("TB_LOG_DIR", "runs/demo")
+    if os.getenv("ENABLE_TB", "0") != "1":
+        return None
+    try:
+        from tensorboardX import SummaryWriter
+        return SummaryWriter(log_dir=log_dir)
+    except ImportError:
+        pass
+    try:
+        from torch.utils.tensorboard import SummaryWriter
+        return SummaryWriter(log_dir=log_dir)
+    except ImportError:
+        pass
+    return None
+
+def train():
+    writer = get_tb_writer()
+    
+    for step in range(1, TOTAL_STEPS + 1):
+        loss = compute_loss()
+        accuracy = compute_accuracy()
+        
+        # Log to TensorBoard
+        if writer is not None:
+            writer.add_scalar("train/loss", loss, step)
+            writer.add_scalar("train/accuracy", accuracy, step)
+            writer.flush()
+```
+
+## Data Processing
+
+When loading event files, OpenGraphs:
+
+1. **Discovers** all `.tfevents` files recursively
+2. **Parses** each file's record-by-record structure
+3. **Extracts** scalar values from protobuf events
+4. **Groups** metrics by tag name
+5. **Sorts** each metric series by step number
+
+The result is a map of metric names to `(step, value)` pairs, ready for visualization.
+
+## Error Handling
+
+OpenGraphs is designed to be resilient:
+
+- Invalid or corrupted files are skipped with a warning
+- CRC checksum failures are caught and logged
+- Protobuf decoding errors don't stop processing of other files
+- Non-scalar data types are silently ignored
+
+This ensures that partial data is still usable even if some files are damaged.
+
+## Performance
+
+The parser is implemented in Rust (`crates/ogtui/src/tfevents.rs`) for high performance:
+
+- Efficient binary parsing with zero-copy operations where possible
+- Streaming record reader for large files
+- Minimal memory overhead
+- Fast recursive directory traversal
+
+## Limitations
+
+- Only scalar metrics are supported (images, histograms, and tensors are ignored)
+- Files must use the standard TensorFlow record format
+- Archive files must be extracted before parsing

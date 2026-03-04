@@ -1,0 +1,507 @@
+---
+title: Remote Training
+description: Run OpenGraphs over SSH to monitor and manage training on remote machines
+---
+
+## Overview
+
+OpenGraphs is designed for remote training workflows. The TUI runs locally on your laptop while the training process executes on a remote GPU server. Communication happens via SSH and Unix sockets.
+
+## Architecture
+
+A typical remote setup has three components:
+
+```
+[Local Machine]        [Remote GPU Server]
+    │                       │
+    │  SSH tunnel           │
+    │◄─────────────────────►│
+    │                       │
+  ogtui ◄─────socket──────► ogd daemon
+    │                       │
+    └─ TUI display          └─ training process
+                            └─ metrics (TensorBoard)
+```
+
+**Local:**
+- Your terminal running `ogtui`
+- Displays metrics, logs, chat
+- Sends commands to daemon
+
+**Remote:**
+- Daemon (`og_agent_chat.server`) managing training
+- Training process writing TensorBoard events
+- Unix socket for daemon communication
+
+## SSH Setup
+
+### 1. Install OpenGraphs on Remote
+
+On the remote server:
+
+```bash
+# One-line installer
+curl -fsSL https://raw.githubusercontent.com/vyomakesh0728/opengraphs/main/scripts/install.sh | bash
+
+# Or via npm
+npm install -g opengraphs-cli
+```
+
+Verify:
+```bash
+ssh remote-server "og --version"
+```
+
+### 2. Start Daemon on Remote
+
+SSH into the server and start the daemon:
+
+```bash
+ssh remote-server
+
+# Navigate to project
+cd /path/to/training/project
+
+# Start daemon
+export OPENAI_API_KEY="sk-..."
+python3 -m og_agent_chat.server \
+  --training-file train.py \
+  --codebase-root . \
+  --auto
+```
+
+**Daemon creates:**
+- Unix socket: `/tmp/opengraphs-ogd.sock`
+- Listens for commands from TUI
+- Manages training process lifecycle
+
+### 3. Forward Socket Over SSH
+
+From your local machine, create an SSH tunnel:
+
+```bash
+# Forward remote socket to local /tmp/opengraphs-ogd.sock
+ssh -L /tmp/opengraphs-ogd.sock:/tmp/opengraphs-ogd.sock remote-server
+```
+
+**Alternative:** Use `-R` for reverse tunnel if remote initiates connection.
+
+### 4. Launch Local TUI
+
+In a new local terminal:
+
+```bash
+# Point to forwarded socket
+ogtui --path /remote/path/to/runs
+```
+
+The TUI connects via the SSH tunnel and displays remote metrics in real-time.
+
+## Daemon Configuration
+
+The daemon (`og_agent_chat.server`) is the core of remote training.
+
+### Starting the Daemon
+
+**Minimal:**
+```bash
+python3 -m og_agent_chat.server --training-file train.py
+```
+
+**Full options:**
+```bash
+python3 -m og_agent_chat.server \
+  --training-file train.py \
+  --codebase-root . \
+  --socket-path /tmp/opengraphs-ogd.sock \
+  --run-dir runs/current \
+  --training-cmd "torchrun --standalone --nproc_per_node=8 train.py" \
+  --start-training \
+  --fresh-run \
+  --auto \
+  --runtime local \
+  --max-retries 3
+```
+
+### Key Flags
+
+| Flag | Purpose |
+|------|--------|
+| `--training-file` | Path to main training script |
+| `--codebase-root` | Project root for agent indexing |
+| `--socket-path` | Unix socket location (default: `/tmp/opengraphs-ogd.sock`) |
+| `--run-dir` | Directory for TensorBoard events |
+| `--training-cmd` | Custom command to launch training |
+| `--start-training` | Auto-start training on daemon launch |
+| `--fresh-run` | Clear old event files before starting |
+| `--auto` | Enable autonomous agent mode |
+| `--runtime` | Runtime backend (`local` or `modal`) |
+| `--max-retries` | Auto-restart attempts on failure |
+
+## Socket Communication
+
+### Default Socket Path
+
+```bash
+/tmp/opengraphs-ogd.sock
+```
+
+Override with:
+```bash
+export OGD_SOCKET="/custom/path/ogd.sock"
+```
+
+Both TUI and daemon must use the same socket path.
+
+### Protocol
+
+The daemon uses JSON-over-Unix-socket:
+
+**Request format:**
+```json
+{"type": "ping"}
+{"type": "get_chat_history"}
+{"type": "chat_message", "content": "fix loss plateau"}
+{"type": "start_training"}
+```
+
+**Response format:**
+```json
+{"ok": true, "type": "pong"}
+{"ok": true, "chat_history": [...]}
+{"ok": false, "error": "Agent unavailable"}
+```
+
+### Verifying Connection
+
+Test socket connectivity:
+
+```bash
+# Check socket exists
+ls -l /tmp/opengraphs-ogd.sock
+# Should show: srwxr-xr-x
+
+# Ping daemon (requires netcat or similar)
+echo '{"type":"ping"}' | nc -U /tmp/opengraphs-ogd.sock
+# Should return: {"ok":true,"type":"pong"}
+```
+
+## Running Training
+
+### Launch Training via Daemon
+
+**From TUI Chat tab:**
+```
+!og run train.py --runtime local --auto autonomous
+```
+
+**Via daemon API:**
+```bash
+# Start training
+python3 -c 'import socket, json; \
+s = socket.socket(socket.AF_UNIX); \
+s.connect("/tmp/opengraphs-ogd.sock"); \
+s.send(json.dumps({"type":"start_training"}).encode() + b"\n")'
+```
+
+### Custom Training Commands
+
+For multi-GPU or complex setups:
+
+```bash
+python3 -m og_agent_chat.server \
+  --training-file train_gpt.py \
+  --training-cmd "torchrun --standalone --nproc_per_node=8 train_gpt.py"
+```
+
+The daemon will:
+1. Launch training with the custom command
+2. Monitor the process (PID tracking)
+3. Capture stdout/stderr to logs
+4. Restart on failure (up to `--max-retries`)
+
+### Environment Variables
+
+Pass environment variables to training:
+
+```bash
+export DEMO_LR="0.001"
+export DEMO_BATCH="32"
+
+python3 -m og_agent_chat.server --training-file demo_train.py --start-training
+```
+
+The training process inherits the daemon's environment.
+
+## Monitoring Over SSH
+
+### Real-Time Metrics
+
+The TUI polls the daemon every 100-2000ms (configurable) for:
+- **Metrics**: Latest scalar values from TensorBoard
+- **Logs**: Stdout/stderr from training process
+- **Alerts**: Triggered by metric thresholds
+- **Process status**: Running, starting, failed, stopped
+
+**Refresh rate:**
+```bash
+ogtui --path runs/ --refresh-ms 500
+```
+
+### Process Monitoring
+
+The **Procs** tab shows:
+- Training process PID, CPU%, MEM%
+- Child processes (e.g., distributed workers)
+- Recently exited processes
+
+**Daemon captures:**
+- Process state (`R`, `S`, `D`, `Z`)
+- Elapsed time
+- CPU and memory usage
+- Command line
+
+### Log Streaming
+
+The **Logs** tab streams:
+- Training stdout/stderr
+- Daemon status messages
+- Agent diagnostics
+
+Logs are buffered (last 200 lines by default) and sent to TUI on each poll.
+
+## Auto-Restart on Failure
+
+The daemon can automatically restart training if it crashes.
+
+### Configuration
+
+```bash
+python3 -m og_agent_chat.server \
+  --training-file train.py \
+  --max-retries 3 \
+  --start-training
+```
+
+**Behavior:**
+- Detects process exit (via PID monitoring)
+- Waits for exponential backoff (2s, 4s, 8s, ...)
+- Restarts training up to `max-retries` times
+- Logs failure reason and exit code
+
+### Failure Detection
+
+The daemon classifies failures:
+
+**OOM (Out of Memory):**
+- Log contains "OOM", "out of memory"
+- Exit code 137 (SIGKILL)
+- Agent proposes batch size reduction
+
+**Timeout:**
+- No heartbeat for >30s (configurable)
+- Runtime status: "timeout"
+
+**Error:**
+- Non-zero exit code
+- Exception in logs
+
+**Stopped:**
+- Manual termination (e.g., `Ctrl+C`)
+- No auto-restart
+
+### Heartbeat Monitoring
+
+The daemon checks training liveness:
+
+```bash
+python3 -m og_agent_chat.server \
+  --runtime-heartbeat-timeout-secs 30 \
+  --runtime-heartbeat-check-secs 2
+```
+
+**Heartbeat sources:**
+- New log lines from training
+- TensorBoard event writes
+- Process still running (PID exists)
+
+If no heartbeat for `timeout` seconds → marks as failed.
+
+## Fresh Run Mode
+
+Clear old TensorBoard events before starting:
+
+```bash
+python3 -m og_agent_chat.server \
+  --training-file train.py \
+  --fresh-run \
+  --start-training
+```
+
+**Effect:**
+- Deletes all `*.tfevents.*` files in `--run-dir`
+- Ensures clean metrics slate
+- Prevents mixing data from previous runs
+
+## Runtime Backends
+
+OpenGraphs supports different execution environments.
+
+### Local Runtime (Default)
+
+Training runs directly on the same machine as the daemon:
+
+```bash
+python3 -m og_agent_chat.server --runtime local --training-file train.py
+```
+
+**Behavior:**
+- Spawns subprocess with `subprocess.Popen`
+- Captures stdout/stderr via pipes
+- Monitors PID for liveness
+
+### Modal Runtime (Experimental)
+
+Runs training in Modal cloud containers:
+
+```bash
+python3 -m og_agent_chat.server --runtime modal --training-file train.py
+```
+
+**Status:** Currently scaffolded but runs via local adapter. Full Modal integration in progress.
+
+## Troubleshooting
+
+### Socket Not Found
+
+**Error:**
+```
+Socket not found: /tmp/opengraphs-ogd.sock
+```
+
+**Fix:**
+1. Check daemon is running: `ps aux | grep og_agent_chat.server`
+2. Verify socket path matches: `echo $OGD_SOCKET`
+3. Restart daemon
+
+### Connection Refused
+
+**Error:**
+```
+Connection failed: Connection refused
+```
+
+**Fix:**
+1. Check SSH tunnel is active: `lsof -U | grep opengraphs`
+2. Re-establish tunnel: `ssh -L /tmp/opengraphs-ogd.sock:...`
+3. Verify firewall/permissions
+
+### Metrics Not Updating
+
+**Possible causes:**
+- TensorBoard not writing events (check training logs)
+- Wrong `--run-dir` path
+- Daemon polling interval too slow
+
+**Fix:**
+```bash
+# Check event files exist
+ls -l runs/*.tfevents.*
+
+# Increase TUI refresh rate
+ogtui --refresh-ms 100
+
+# Verify daemon run-dir
+cat /proc/$(pgrep -f og_agent_chat.server)/cmdline | tr '\0' ' '
+```
+
+### Training Won't Start
+
+**Check daemon logs:**
+```bash
+# Daemon writes to stdout by default
+python3 -m og_agent_chat.server ... 2>&1 | tee daemon.log
+```
+
+**Common issues:**
+- Training file path incorrect
+- Python environment mismatch
+- Missing dependencies (torch, transformers, etc.)
+- Permission denied on `--run-dir`
+
+## Best Practices
+
+### Use tmux/screen on Remote
+
+Keep the daemon running even if SSH disconnects:
+
+```bash
+ssh remote-server
+tmux new -s opengraphs
+
+cd /path/to/project
+python3 -m og_agent_chat.server --training-file train.py --auto
+
+# Detach: Ctrl+B, D
+# Reattach later: tmux attach -t opengraphs
+```
+
+### Separate Logs and Metrics
+
+Use dedicated directories:
+
+```bash
+python3 -m og_agent_chat.server \
+  --training-file train.py \
+  --run-dir /data/runs/$(date +%Y%m%d_%H%M%S)
+```
+
+This prevents logs from mixing across experiments.
+
+### Set Environment in Daemon
+
+Define training config via env vars:
+
+```bash
+export DEMO_LR="0.001"
+export DEMO_BATCH="32"
+export WANDB_DISABLED="true"
+
+python3 -m og_agent_chat.server --training-file train.py
+```
+
+Agent can modify these when proposing OOM recovery.
+
+### Monitor Resource Usage
+
+Check **Procs** tab for:
+- Training process CPU% (should be >90% on active GPUs)
+- Memory% (watch for gradual increase = memory leak)
+- Zombie processes (indicates cleanup issues)
+
+## Advanced: Multi-Hop SSH
+
+If the GPU server is behind a bastion:
+
+```bash
+# SSH config (~/.ssh/config)
+Host bastion
+  HostName bastion.example.com
+  User youruser
+
+Host gpu-server
+  HostName 10.0.0.5
+  User youruser
+  ProxyJump bastion
+
+# Tunnel through bastion
+ssh -L /tmp/opengraphs-ogd.sock:/tmp/opengraphs-ogd.sock gpu-server
+```
+
+The TUI connects as if the server were local.
+
+## Next Steps
+
+- Learn about [experiment tracking](/guides/tracking-experiments) workflows
+- Master [TUI navigation](/guides/tui-interface) shortcuts
+- Configure the [AI agent](/guides/ai-agent) for autonomous mode

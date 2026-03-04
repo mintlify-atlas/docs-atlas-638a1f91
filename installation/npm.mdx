@@ -1,0 +1,266 @@
+---
+title: NPM installation
+description: Install OpenGraphs globally using npm for persistent access
+---
+
+Installing OpenGraphs globally with npm gives you persistent access to the `og` command without needing to use npx each time.
+
+## Install globally
+
+Install the latest version globally:
+
+```bash
+npm install -g opengraphs-cli
+```
+
+This makes the `og` command available system-wide.
+
+## Verify installation
+
+Check that installation was successful:
+
+```bash
+og --help
+opengraphs-cli --version
+```
+
+You should see the help output and version number.
+
+## Available commands
+
+After global installation, you can use any of these aliases:
+
+<CodeGroup>
+
+```bash og (shortest)
+og --help
+og run demo_train.py
+```
+
+```bash opengraphs
+opengraphs --help
+opengraphs run demo_train.py
+```
+
+```bash opengraphs-cli (full name)
+opengraphs-cli --help
+opengraphs-cli run demo_train.py
+```
+
+</CodeGroup>
+
+All three commands are identical - use whichever you prefer.
+
+## Update to latest
+
+Upgrade to the newest version:
+
+```bash
+npm install -g opengraphs-cli@latest
+```
+
+<Tip>
+Run this command periodically to get the latest features and bug fixes.
+</Tip>
+
+## Update to specific version
+
+Install a specific version:
+
+```bash
+npm install -g opengraphs-cli@0.1.7
+```
+
+## Check current version
+
+See which version you have installed:
+
+```bash
+npm list -g opengraphs-cli
+```
+
+Or use the CLI directly:
+
+```bash
+og --version
+```
+
+## Uninstall
+
+Remove the global package:
+
+```bash
+npm uninstall -g opengraphs-cli
+```
+
+Verify removal:
+
+```bash
+og --help  # Should show "command not found"
+```
+
+## Package structure
+
+The npm package (`opengraphs-cli`) is a wrapper that:
+
+<Steps>
+
+<Step title="Downloads binaries">
+Fetches pre-built Rust binaries from GitHub releases for your platform.
+</Step>
+
+<Step title="Provides aliases">
+Exposes `og`, `opengraphs`, and `opengraphs-cli` commands.
+</Step>
+
+<Step title="Manages execution">
+Routes commands to the appropriate platform-specific binary.
+</Step>
+
+</Steps>
+
+## Installation location
+
+Global npm packages are installed to:
+
+- **macOS/Linux**: `~/.npm-global/lib/node_modules` or `/usr/local/lib/node_modules`
+- **Windows**: `%APPDATA%\npm\node_modules`
+
+To find your global install location:
+
+```bash
+npm root -g
+```
+
+## Requirements
+
+<Note>
+Node.js version 18 or higher is required.
+</Note>
+
+Check your Node.js version:
+
+```bash
+node --version
+```
+
+If you need to upgrade:
+
+```bash
+# Using nvm (recommended)
+nvm install 18
+nvm use 18
+
+# Or download from nodejs.org
+```
+
+## Supported platforms
+
+The npm package includes binaries for:
+
+| Platform | Architecture | Supported |
+|----------|--------------|----------|
+| macOS | x86_64 (Intel) | ✓ |
+| macOS | ARM64 (M1/M2/M3) | ✓ |
+| Linux | x86_64 | ✓ |
+| Linux | ARM64 | ✓ |
+| Windows | Any | ✗ |
+
+<Warning>
+Windows is not currently supported. Use WSL2 with the Linux installation method instead.
+</Warning>
+
+## Troubleshooting
+
+### Permission denied
+
+If you get an EACCES error during installation:
+
+<CodeGroup>
+
+```bash Option 1: Use npm's directory (recommended)
+mkdir -p ~/.npm-global
+npm config set prefix '~/.npm-global'
+export PATH=~/.npm-global/bin:$PATH
+
+# Add to your shell profile
+echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.bashrc
+
+# Then install again
+npm install -g opengraphs-cli
+```
+
+```bash Option 2: Fix permissions
+sudo chown -R $USER /usr/local/lib/node_modules
+npm install -g opengraphs-cli
+```
+
+```bash Option 3: Use sudo (not recommended)
+sudo npm install -g opengraphs-cli
+```
+
+</CodeGroup>
+
+<Note>
+Option 1 is recommended as it avoids permission issues without requiring sudo.
+</Note>
+
+### Command not found after install
+
+If `og` isn't found after installation, add npm's global bin to your PATH:
+
+```bash
+# Find the bin directory
+npm bin -g
+
+# Add to PATH (example output: /usr/local/bin)
+export PATH="/usr/local/bin:$PATH"
+
+# Make permanent by adding to shell profile
+echo 'export PATH="/usr/local/bin:$PATH"' >> ~/.bashrc
+```
+
+### Binary not executable
+
+If the binary can't execute, check permissions:
+
+```bash
+# Find the binary
+which og
+
+# Fix permissions
+chmod +x $(which og)
+```
+
+### Wrong platform binary
+
+If you see "exec format error", the wrong binary was installed:
+
+```bash
+# Check your platform
+uname -sm
+
+# Reinstall
+npm uninstall -g opengraphs-cli
+npm install -g opengraphs-cli
+```
+
+## When to use npm vs npx
+
+| Scenario | Recommendation |
+|----------|----------------|
+| Daily usage | npm global install |
+| One-time test | npx |
+| CI/CD pipeline | npx with pinned version |
+| Shared server | npx (no install needed) |
+| Development | npm global install |
+
+## Alternative: Curl installer
+
+If you prefer not to use npm, consider the [curl installer](/installation/curl-installer) which downloads binaries directly from GitHub releases:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vyomakesh0728/opengraphs/main/scripts/install.sh | bash
+```
+
+This method doesn't require Node.js and may be faster for production deployments.

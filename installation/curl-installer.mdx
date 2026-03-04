@@ -1,0 +1,166 @@
+---
+title: Curl installer
+description: Install OpenGraphs binaries from GitHub releases using the one-line installer
+---
+
+The curl installer is the recommended way to install OpenGraphs. It downloads pre-built binaries from GitHub releases and installs them to your local bin directory.
+
+## Quick install
+
+Install the latest release with a single command:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vyomakesh0728/opengraphs/main/scripts/install.sh | bash
+```
+
+This installs three binaries:
+- `ogtui`: The main TUI application
+- `ogd`: The metrics collection daemon
+- `og`: Alias for ogtui
+
+## Installation options
+
+### Install specific version
+
+To install a pinned version instead of the latest release:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vyomakesh0728/opengraphs/main/scripts/install.sh | bash -s -- --version v0.1.6
+```
+
+<Tip>
+Pinning to a specific version is recommended for production environments to ensure consistent behavior.
+</Tip>
+
+### Custom installation directory
+
+By default, binaries are installed to `~/.local/bin`. You can customize this:
+
+<CodeGroup>
+
+```bash Custom prefix
+curl -fsSL https://raw.githubusercontent.com/vyomakesh0728/opengraphs/main/scripts/install.sh | bash -s -- --prefix /usr/local
+```
+
+```bash Custom bin directory
+curl -fsSL https://raw.githubusercontent.com/vyomakesh0728/opengraphs/main/scripts/install.sh | bash -s -- --bin-dir /opt/bin
+```
+
+</CodeGroup>
+
+### Environment variables
+
+You can also configure installation using environment variables:
+
+```bash
+export OG_VERSION="v0.1.6"
+export OG_PREFIX="$HOME/.local"
+export OG_REPO="vyomakesh0728/opengraphs"
+curl -fsSL https://raw.githubusercontent.com/vyomakesh0728/opengraphs/main/scripts/install.sh | bash
+```
+
+<Note>
+Command-line arguments take precedence over environment variables.
+</Note>
+
+## How it works
+
+The installer performs the following steps:
+
+<Steps>
+
+<Step title="Detect your platform">
+Automatically detects your OS (macOS/Linux) and architecture (x86_64/aarch64) to download the correct binary.
+</Step>
+
+<Step title="Resolve version">
+If you specified `latest` (the default), queries the GitHub API to find the most recent release tag.
+</Step>
+
+<Step title="Download archive">
+Downloads the release archive (`opengraphs-{version}-{target}.tar.gz`) from GitHub releases.
+</Step>
+
+<Step title="Verify checksum">
+Verifies the SHA256 checksum if available. Uses `shasum` or `sha256sum` depending on your system.
+</Step>
+
+<Step title="Extract and install">
+Extracts binaries and installs them with executable permissions to your bin directory.
+</Step>
+
+</Steps>
+
+## Verify installation
+
+After installation, verify that the binaries are in your PATH:
+
+```bash
+og --help
+ogtui --version
+ogd --version
+```
+
+If you see a "command not found" error, add the bin directory to your PATH:
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+Add this line to your shell profile (`~/.bashrc`, `~/.zshrc`, etc.) to make it permanent.
+
+## Update to latest
+
+To update to the latest release, simply re-run the installer:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vyomakesh0728/opengraphs/main/scripts/install.sh | bash
+```
+
+The installer will overwrite existing binaries with the new version.
+
+## Supported platforms
+
+The installer supports the following platforms:
+
+| OS | Architecture | Target |
+|----|--------------|--------|
+| macOS | x86_64 | x86_64-apple-darwin |
+| macOS | ARM64 (M1/M2) | aarch64-apple-darwin |
+| Linux | x86_64 | x86_64-unknown-linux-gnu |
+| Linux | ARM64 | aarch64-unknown-linux-gnu |
+
+## Troubleshooting
+
+### Required commands
+
+The installer requires these commands to be available:
+- `curl`: Download files
+- `tar`: Extract archives
+- `mktemp`: Create temporary directories
+- `install`: Install binaries with permissions
+
+If any are missing, install them using your system package manager.
+
+### Checksum verification failed
+
+If checksum verification fails, the download may be corrupted. Try running the installer again. If the problem persists, check the [GitHub releases page](https://github.com/vyomakesh0728/opengraphs/releases) for the correct checksum.
+
+### Permission denied
+
+If you get a permission error, ensure you have write access to the installation directory. You may need to:
+- Use a different `--prefix` or `--bin-dir`
+- Create the directory first: `mkdir -p ~/.local/bin`
+- Use `sudo` for system-wide installation (not recommended)
+
+<Warning>
+Avoid using `sudo` with the curl installer. Install to a user directory like `~/.local/bin` instead.
+</Warning>
+
+## Uninstall
+
+To uninstall, simply remove the binaries:
+
+```bash
+rm ~/.local/bin/og ~/.local/bin/ogtui ~/.local/bin/ogd
+```

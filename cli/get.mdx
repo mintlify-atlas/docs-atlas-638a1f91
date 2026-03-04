@@ -1,0 +1,258 @@
+---
+title: 'og get'
+description: 'Get detailed information about runs and metrics'
+---
+
+## Overview
+
+The `og get` command retrieves detailed information about training runs and specific metrics.
+
+## Subcommands
+
+- [`og get run`](#get-run) - Get run summary and latest metrics
+- [`og get metric`](#get-metric) - Get metric time series data
+
+---
+
+## Get Run
+
+Retrieve a summary of a training run including status, metrics, and latest values.
+
+### Syntax
+
+```bash
+og get run [OPTIONS]
+```
+
+### Options
+
+<ParamField path="--path" type="path" default="runs/">
+  Root runs directory
+  
+  **Example:**
+  ```bash
+  og get run --run run-123 --path experiments/
+  ```
+</ParamField>
+
+<ParamField path="--project" type="string">
+  Project name
+  
+  **Example:**
+  ```bash
+  og get run --project image-classification --run run-001
+  ```
+</ParamField>
+
+<ParamField path="--run" type="string" required>
+  Run ID or direct path
+  
+  **Example:**
+  ```bash
+  og get run --run run-123
+  og get run --run /path/to/run-123
+  ```
+</ParamField>
+
+### Output
+
+**Text format:**
+```
+run run-123
+path: runs/run-123
+status: running
+metrics: 45
+events: 1000
+max_step: 1000
+latest metrics:
+- train/accuracy: {"step":1000,"value":0.95}
+- train/loss: {"step":1000,"value":0.123}
+- val/accuracy: {"step":1000,"value":0.93}
+- val/loss: {"step":1000,"value":0.156}
+```
+
+**JSON format:**
+```bash
+og get run --run run-123 --json
+```
+
+```json
+{
+  "command": "get.run",
+  "data": {
+    "run": {
+      "id": "run-123",
+      "path": "runs/run-123",
+      "metric_count": 45,
+      "event_count": 1000,
+      "max_step": 1000,
+      "status": "running",
+      "last_updated_unix": 1709567890
+    },
+    "latest_metrics": {
+      "train/loss": {
+        "step": 1000,
+        "value": 0.123
+      },
+      "train/accuracy": {
+        "step": 1000,
+        "value": 0.95
+      },
+      "val/loss": {
+        "step": 1000,
+        "value": 0.156
+      },
+      "val/accuracy": {
+        "step": 1000,
+        "value": 0.93
+      }
+    }
+  }
+}
+```
+
+### Examples
+
+```bash
+# Get run summary
+og get run --run run-123
+
+# Get run from specific project
+og get run --project image-classification --run run-001
+
+# Use direct path
+og get run --run /path/to/runs/run-123
+
+# JSON output
+og get run --run run-123 --json
+```
+
+---
+
+## Get Metric
+
+Retrieve the complete time series for a specific metric in a run.
+
+### Syntax
+
+```bash
+og get metric [OPTIONS]
+```
+
+### Options
+
+<ParamField path="--path" type="path" default="runs/">
+  Root runs directory
+</ParamField>
+
+<ParamField path="--project" type="string">
+  Project name
+</ParamField>
+
+<ParamField path="--run" type="string" required>
+  Run ID or direct path
+</ParamField>
+
+<ParamField path="--metric" type="string" required>
+  Metric name (e.g., `train/loss`, `val/accuracy`)
+  
+  **Example:**
+  ```bash
+  og get metric --run run-123 --metric train/loss
+  ```
+</ParamField>
+
+### Output
+
+**Text format:**
+```
+run: runs/run-123
+metric: train/loss
+count: 1000
+min: 0.089123
+max: 2.456789
+last: 0.123456
+tail:
+- step 981 => 0.125678
+- step 982 => 0.124567
+- step 983 => 0.123987
+- step 984 => 0.123654
+- step 985 => 0.123456
+...
+```
+
+**JSON format:**
+```bash
+og get metric --run run-123 --metric train/loss --json
+```
+
+```json
+{
+  "command": "get.metric",
+  "data": {
+    "run": "runs/run-123",
+    "metric": "train/loss",
+    "count": 1000,
+    "min": 0.089123,
+    "max": 2.456789,
+    "last": 0.123456,
+    "points": [
+      {"step": 0, "value": 2.456789},
+      {"step": 1, "value": 2.412345},
+      {"step": 2, "value": 2.389012},
+      ...
+      {"step": 1000, "value": 0.123456}
+    ]
+  }
+}
+```
+
+### Examples
+
+```bash
+# Get metric time series
+og get metric --run run-123 --metric train/loss
+
+# Get metric from specific project
+og get metric --project image-classification --run run-001 --metric train/accuracy
+
+# JSON output with all points
+og get metric --run run-123 --metric train/loss --json
+```
+
+---
+
+## Metric Statistics
+
+For each metric, the following statistics are computed:
+
+- **count**: Total number of data points
+- **min**: Minimum value across all steps
+- **max**: Maximum value across all steps  
+- **last**: Most recent value (at max step)
+
+### Tail Output
+
+The text format shows the last 20 data points (or fewer if less than 20 total).
+
+The JSON format includes **all** data points in the `points` array.
+
+## Exit Codes
+
+- `0` - Success
+- `1` - Run or metric not found
+
+## Notes
+
+- Run paths can be specified as run IDs (resolved from `--path/--project`) or as direct paths
+- Metric names are case-sensitive and must match exactly
+- The `last_updated_unix` timestamp is the most recent modification time of any file in the run directory
+- Status is determined by whether the run was updated within the last 120 seconds
+- All metric values are stored and retrieved as 64-bit floats
+
+## Related Commands
+
+- [`og list runs`](/cli/list#list-runs) - List all available runs
+- [`og list metrics`](/cli/list#list-metrics) - List all metrics in a run
+- [`og compare`](/cli/compare) - Compare a metric across multiple runs
+- [`og tail`](/cli/tail) - View recent events

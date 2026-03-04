@@ -1,80 +1,327 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quick start
+description: Run your first OpenGraphs experiment in minutes
 ---
 
-## Get started in three steps
+This guide walks you through running your first experiment with OpenGraphs using the included demo training script.
 
-Get your documentation site running locally and make your first customization.
+## Prerequisites
 
-### Step 1: Set up your local environment
+Before you begin, you need to install OpenGraphs. Choose one method:
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+<CardGroup cols={3}>
+  <Card title="Curl installer" icon="terminal" href="/installation/curl-installer">
+    Recommended for most users
+  </Card>
+  <Card title="NPX" icon="bolt" href="/installation/npx">
+    Try without installing
+  </Card>
+  <Card title="NPM" icon="npm" href="/installation/npm">
+    Global install
+  </Card>
+</CardGroup>
 
-### Step 2: Deploy your changes
+## Run the demo
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+The quickest way to see OpenGraphs in action is with the demo training script:
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+```bash
+og run demo_train.py --auto autonomous
+```
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+This command:
+- Starts a simulated training run
+- Tracks metrics (loss, accuracy, learning rate)
+- Collects system stats (GPU/CPU usage)
+- Displays live graphs in your terminal
 
-### Step 3: Go live
+<Tip>
+The demo script intentionally uses suboptimal hyperparameters to demonstrate how OpenGraphs helps you identify and fix training issues.
+</Tip>
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+## Understanding the output
+
+While the demo runs, you'll see:
+
+### Console logs
+
+```text
+step    1 | loss=2.4823 | acc=0.1234 | base_lr=0.0010 | eff_lr=0.0002
+step    2 | loss=2.4156 | acc=0.1456 | base_lr=0.0010 | eff_lr=0.0004
+step    3 | loss=2.3421 | acc=0.1689 | base_lr=0.0010 | eff_lr=0.0006
+...
+```
+
+### Live TUI (if enabled)
+
+The terminal UI shows:
+- **Graphs tab**: Real-time metric plots
+- **Logs tab**: Training output
+- **Chat tab**: AI agent interface (with `--auto`)
+
+## Explore the demo script
+
+The demo script (`demo_train.py`) simulates a training loop with:
+
+<CodeGroup>
+
+```python Metric reporting
+from og_agent_chat.client import send_metric
+
+def report(metric, value, step):
+    try:
+        send_metric(metric, value, step=step)
+    except Exception:
+        pass
+
+report("train/loss", loss, step)
+report("train/accuracy", acc, step)
+report("train/lr_effective", eff_lr, step)
+```
+
+```python Hyperparameters
+LEARNING_RATE = 0.001
+TOTAL_STEPS = 100
+BATCH_SIZE = 32
+WARMUP_STEPS = 20
+```
+
+```python System metrics
+def gpu_stats():
+    # Collects GPU temp, utilization, memory, power
+    pass
+
+def cpu_stats():
+    # Collects CPU and RAM usage
+    pass
+```
+
+</CodeGroup>
+
+## View metrics
+
+After the run completes, you can query metrics using the CLI:
+
+<Steps>
+
+<Step title="List projects">
+```bash
+og list projects
+```
+
+Shows all projects in your runs directory.
+</Step>
+
+<Step title="List runs">
+```bash
+og list runs --project myproject
+```
+
+Shows all runs for a specific project.
+</Step>
+
+<Step title="View specific metric">
+```bash
+og get metric --project myproject --run <run-id> --metric train/loss
+```
+
+Displays all values for a specific metric.
+</Step>
+
+<Step title="Compare runs">
+```bash
+og compare --runs run1,run2 --metric train/accuracy
+```
+
+Compares the same metric across multiple runs.
+</Step>
+
+</Steps>
+
+## Customize the run
+
+You can customize the demo with environment variables:
+
+<CodeGroup>
+
+```bash Adjust learning rate
+DEMO_LR=0.005 og run demo_train.py
+```
+
+```bash Change batch size
+DEMO_BATCH=64 og run demo_train.py
+```
+
+```bash Both together
+DEMO_LR=0.002 DEMO_BATCH=128 og run demo_train.py
+```
+
+</CodeGroup>
+
+## Runtime backends
+
+OpenGraphs supports different execution environments:
+
+### Local runtime (default)
+
+```bash
+og run demo_train.py --runtime local
+```
+
+Runs the script on your current machine.
+
+### Modal runtime
+
+```bash
+og run demo_train.py --runtime modal
+```
+
+<Note>
+Modal runtime is currently a scaffold that executes locally while the remote adapter is finalized.
+</Note>
+
+## Specify metrics to graph
+
+Control which metrics appear in the live graph view:
+
+```bash
+og run demo_train.py --graph '{"metrics":["loss","reward"],"sys":["gpu","vram"]}'
+```
+
+This displays:
+- Training metrics: `loss` and `reward`
+- System metrics: `gpu` and `vram`
+
+## Customize metric labels
+
+Make graphs more readable with custom labels:
+
+<CodeGroup>
+
+```bash JSON format
+og run demo_train.py \
+  --graph-labels '{"train/loss":"Loss","train/accuracy":"Accuracy"}'
+```
+
+```bash CSV format
+og run demo_train.py \
+  --graph-labels "train/loss=Loss,train/accuracy=Accuracy"
+```
+
+```bash Environment variable
+export OG_GRAPH_LABELS='{"train/loss":"Loss","train/accuracy":"Accuracy"}'
+og run demo_train.py
+```
+
+</CodeGroup>
+
+## Use the AI agent
+
+The `--auto autonomous` flag enables an AI agent that:
+- Watches your training metrics in real-time
+- Identifies issues (divergence, instability, suboptimal convergence)
+- Suggests hyperparameter fixes
+- Can automatically refactor your code (with permission)
+
+<Warning>
+The AI agent requires an OpenAI API key. Set it before running:
+```bash
+export OPENAI_API_KEY="your-key-here"
+```
+</Warning>
+
+To use the agent:
+
+```bash
+export OPENAI_API_KEY="sk-..."
+og run demo_train.py --auto autonomous
+```
+
+The agent will analyze the demo's intentionally bad hyperparameters and suggest improvements like:
+- Reducing learning rate from 0.008 to 0.001
+- Increasing warmup steps from 3 to 20
+- Adjusting batch size for smoother updates
+
+## Track your own code
+
+To track your own training script:
+
+<Steps>
+
+<Step title="Install Python client">
+```bash
+pip install og-agent-chat
+```
+</Step>
+
+<Step title="Import and use client">
+```python
+from og_agent_chat.client import send_metric
+
+for step in range(num_steps):
+    loss = train_step()
+    send_metric("train/loss", loss, step=step)
+```
+</Step>
+
+<Step title="Run with OpenGraphs">
+```bash
+og run your_train.py
+```
+</Step>
+
+</Steps>
+
+## TensorBoard integration
+
+OpenGraphs can also read TensorBoard event files:
+
+```bash
+# Your code writes to TensorBoard
+from torch.utils.tensorboard import SummaryWriter
+writer = SummaryWriter(log_dir="runs/experiment")
+writer.add_scalar("train/loss", loss, step)
+
+# Point OpenGraphs to the same directory
+og --path runs/experiment
+```
+
+## Common CLI commands
+
+Here are the most useful commands for day-to-day usage:
+
+```bash
+# Run training with live graphs
+og run train.py --runtime local --auto autonomous
+
+# Tail logs from a specific run
+og tail <run-id>
+
+# Resume from checkpoint
+og resume <run-id> --checkpoint latest
+
+# Search for metrics
+og search metrics --query loss
+
+# Get all commands in JSON format
+og list projects --json
+```
+
+Every command supports `--json` output for programmatic usage.
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
-
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="CLI reference" icon="book" href="/cli/run">
+    Complete command reference
+  </Card>
+  <Card title="Python client" icon="python" href="/guides/python-api">
+    Integrate with your training code
+  </Card>
+  <Card title="TUI guide" icon="window" href="/guides/tui-interface">
+    Master the terminal interface
+  </Card>
+  <Card title="AI agent" icon="robot" href="/guides/ai-agent">
+    Configure the autonomous agent
+  </Card>
 </CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>

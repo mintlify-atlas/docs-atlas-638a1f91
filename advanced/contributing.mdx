@@ -1,0 +1,514 @@
+---
+title: 'Contributing Guide'
+description: 'How to contribute to OpenGraphs development'
+---
+
+## Welcome
+
+Contributions are welcome! Whether you're fixing bugs, adding features, improving documentation, or reporting issues, your help is appreciated.
+
+## Getting Started
+
+### 1. Fork and Clone
+
+```bash
+# Fork on GitHub
+gh repo fork vyomakesh0728/opengraphs --clone
+
+# Or clone your fork
+git clone https://github.com/YOUR_USERNAME/opengraphs.git
+cd opengraphs
+```
+
+### 2. Set Up Development Environment
+
+Follow the [Building from Source](/advanced/building-from-source) guide:
+
+```bash
+# Install Rust
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Install uv (Python package manager)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Build Rust crates
+cargo build
+
+# Install Python agent
+uv pip install -e python/agent-chat/
+
+# Run tests
+cargo test
+```
+
+### 3. Create a Branch
+
+```bash
+git checkout -b feature/my-awesome-feature
+```
+
+Branch naming conventions:
+- `feature/description` - New features
+- `fix/description` - Bug fixes
+- `docs/description` - Documentation updates
+- `refactor/description` - Code refactoring
+- `test/description` - Test improvements
+
+## Development Workflow
+
+### 1. Write Code
+
+Make your changes in:
+- `crates/ogtui/` - Terminal UI
+- `crates/ogd/` - HTTP daemon (placeholder)
+- `python/agent-chat/` - AI agent daemon
+
+### 2. Follow Code Style
+
+#### Rust
+
+```bash
+# Format code
+cargo fmt
+
+# Check formatting
+cargo fmt -- --check
+
+# Run linter
+cargo clippy --all-targets --all-features
+
+# Fix common issues
+cargo clippy --fix
+```
+
+**Key conventions:**
+- Use `snake_case` for functions and variables
+- Use `PascalCase` for types and structs
+- Use `SCREAMING_SNAKE_CASE` for constants
+- Prefer explicit types over `var`
+- Add comments for complex logic
+- Use `?` for error propagation
+- Prefer `Result<T>` over `unwrap()`
+
+#### Python
+
+```bash
+# Format with black (if available)
+black python/agent-chat/
+
+# Check with flake8 (if available)
+flake8 python/agent-chat/
+```
+
+**Key conventions:**
+- Follow PEP 8 style guide
+- Use type hints where possible
+- Add docstrings to functions
+- Use `async`/`await` for I/O operations
+
+### 3. Write Tests
+
+#### Rust Tests
+
+Add tests in the same file as the code:
+
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn it_works() {
+        let result = my_function();
+        assert_eq!(result, expected);
+    }
+
+    #[tokio::test]
+    async fn async_test() {
+        let result = my_async_function().await;
+        assert!(result.is_ok());
+    }
+}
+```
+
+Run tests:
+```bash
+# All tests
+cargo test
+
+# Specific crate
+cargo test -p ogtui
+
+# Specific test
+cargo test -p ogtui socket_client::tests::ping_round_trips
+
+# With output
+cargo test -- --nocapture
+```
+
+#### Integration Tests
+
+For TUI integration tests, use the test utilities in `crates/ogtui/tests/`:
+
+```rust
+// Example: tests/tui_integration.rs
+use ogtui::app::App;
+
+#[test]
+fn app_initializes_with_default_state() {
+    let app = App::new(/* params */);
+    assert_eq!(app.selected_tab, 0);
+}
+```
+
+### 4. Test Manually
+
+```bash
+# Run ogtui with your changes
+cargo run -p ogtui -- --path runs/
+
+# Test with agent daemon
+export OPENAI_API_KEY="your-key"
+cargo run -p ogtui -- \
+  --training-file train.py \
+  --codebase-root . \
+  --auto
+```
+
+### 5. Commit Changes
+
+```bash
+# Stage changes
+git add .
+
+# Commit with descriptive message
+git commit -m "feat: add metric filtering to graphs tab"
+```
+
+**Commit message format:**
+
+```
+<type>: <description>
+
+[optional body]
+
+[optional footer]
+```
+
+**Types:**
+- `feat` - New feature
+- `fix` - Bug fix
+- `docs` - Documentation only
+- `style` - Code style (formatting, semicolons, etc.)
+- `refactor` - Code refactoring
+- `test` - Adding or updating tests
+- `chore` - Build/tooling changes
+
+**Examples:**
+```
+feat: add graph zoom controls to UI
+fix: resolve socket timeout on slow connections
+docs: update daemon protocol documentation
+test: add coverage for socket client error handling
+```
+
+### 6. Push and Create Pull Request
+
+```bash
+# Push to your fork
+git push origin feature/my-awesome-feature
+
+# Create PR via GitHub
+gh pr create --title "Add metric filtering" --body "Implements #123"
+```
+
+## Pull Request Guidelines
+
+### PR Title
+
+Use same format as commit messages:
+```
+feat: add metric filtering to graphs tab
+fix: resolve socket connection timeout
+docs: improve daemon documentation
+```
+
+### PR Description
+
+Include:
+
+1. **Problem** - What issue does this solve?
+2. **Solution** - How does this PR fix it?
+3. **Changes** - What code was modified?
+4. **Testing** - How was this tested?
+5. **Screenshots** - For UI changes
+6. **Tradeoffs** - Any downsides or considerations?
+
+**Template:**
+```markdown
+## Problem
+
+Users can't filter metrics in the graphs tab (#123).
+
+## Solution
+
+Added a filter input box that accepts JSON/CSV patterns.
+
+## Changes
+
+- Added `MetricFilter` struct in `app.rs`
+- Updated `ui.rs` to render filter input
+- Modified `main.rs` to parse filter from CLI
+
+## Testing
+
+- [x] Unit tests pass (`cargo test`)
+- [x] Manual testing with sample runs
+- [x] Clippy checks pass
+
+## Screenshots
+
+![Filter UI](screenshot.png)
+
+## Tradeoffs
+
+Filter parsing adds ~10ms to startup time for large metric sets.
+```
+
+### Before Submitting
+
+Checklist:
+
+- [ ] Code follows project style (`cargo fmt`, `cargo clippy`)
+- [ ] Tests pass (`cargo test`)
+- [ ] Documentation updated (if needed)
+- [ ] Commit messages follow convention
+- [ ] PR description is clear and complete
+- [ ] No merge conflicts with `main`
+
+## Code Review Process
+
+1. **Automated Checks** - CI runs tests and lints
+2. **Maintainer Review** - Core team reviews code
+3. **Feedback** - Address any requested changes
+4. **Approval** - Once approved, PR is merged
+
+**Response time:** We aim to review PRs within 1-2 weeks.
+
+## Issue Guidelines
+
+### Reporting Bugs
+
+**Template:**
+```markdown
+## Bug Description
+
+Brief description of the issue.
+
+## Steps to Reproduce
+
+1. Run `cargo run -p ogtui -- --path runs/`
+2. Navigate to Chat tab
+3. Send message
+4. Observe crash
+
+## Expected Behavior
+
+Chat should send message to daemon.
+
+## Actual Behavior
+
+Application crashes with:
+```
+thread 'main' panicked at 'called `Result::unwrap()` on an `Err` value: SocketNotFound'
+```
+
+## Environment
+
+- OS: Ubuntu 22.04
+- Rust version: 1.83.0
+- OpenGraphs version: 0.1.7
+- Running from: source
+
+## Additional Context
+
+Daemon was not started before launching ogtui.
+```
+
+### Feature Requests
+
+**Template:**
+```markdown
+## Feature Description
+
+Add support for multiple metric y-axes in graphs tab.
+
+## Use Case
+
+When comparing metrics with different scales (loss vs accuracy), a single y-axis makes visualization difficult.
+
+## Proposed Solution
+
+Allow users to assign metrics to left/right y-axes with independent scaling.
+
+## Alternatives Considered
+
+- Normalize all metrics to 0-1 range (loses interpretability)
+- Separate graphs per metric (takes more screen space)
+
+## Additional Context
+
+Common in TensorBoard and other ML dashboards.
+```
+
+## Areas to Contribute
+
+### High Priority
+
+1. **ogd HTTP Server** - Implement actual HTTP/WebSocket server
+2. **Test Coverage** - Add tests for UI rendering and edge cases
+3. **Documentation** - Improve inline docs and examples
+4. **Performance** - Profile and optimize hot paths
+5. **Error Handling** - Better error messages and recovery
+
+### Good First Issues
+
+Look for issues tagged with `good first issue` on GitHub:
+
+- Add CLI flag validation
+- Improve error messages
+- Add keyboard shortcuts
+- Fix typos in documentation
+- Add more tests
+
+### Feature Ideas
+
+- Export metrics to CSV/JSON
+- Graph zoom and pan controls
+- Metric comparison view
+- Custom color themes
+- Configurable keyboard shortcuts
+- Multi-run comparison
+- Checkpoint browser
+- Training pause/resume from UI
+- Slack/Discord notifications
+- Metric alerts
+
+## Community
+
+### Communication
+
+- **GitHub Issues** - Bug reports and feature requests
+- **GitHub Discussions** - Questions and ideas
+- **Pull Requests** - Code contributions
+
+### Code of Conduct
+
+Be respectful, inclusive, and professional. We follow standard open source etiquette:
+
+- Be patient with reviewers
+- Accept constructive feedback
+- Focus on technical merit
+- Help others learn
+- Give credit where due
+
+## Recognition
+
+Contributors are recognized in:
+
+- Git commit history
+- GitHub Contributors page
+- Release notes (for significant contributions)
+
+## Legal
+
+### License
+
+By contributing, you agree that your contributions will be licensed under the same license as the project.
+
+### Copyright
+
+Contributors retain copyright to their contributions but grant the project a perpetual license to use, modify, and distribute the code.
+
+### Sign-Off
+
+All commits should include a sign-off:
+
+```bash
+git commit -s -m "feat: add feature"
+```
+
+This adds:
+```
+Signed-off-by: Your Name <you@example.com>
+```
+
+## Development Tips
+
+### Fast Iteration
+
+```bash
+# Use cargo-watch for auto-rebuild
+cargo install cargo-watch
+cargo watch -x 'run -p ogtui -- --path runs/'
+
+# Use cargo-nextest for faster tests
+cargo install cargo-nextest
+cargo nextest run
+```
+
+### Debugging
+
+```bash
+# Run with debug symbols
+cargo build
+rust-gdb target/debug/ogtui
+
+# Enable tracing
+RUST_LOG=debug cargo run -p ogtui
+
+# Enable backtrace
+RUST_BACKTRACE=1 cargo run -p ogtui
+```
+
+### Profiling
+
+```bash
+# CPU profiling with flamegraph
+cargo install flamegraph
+sudo flamegraph -- ./target/release/ogtui --path runs/
+
+# Memory profiling with heaptrack
+heaptrack ./target/release/ogtui --path runs/
+```
+
+### Documentation
+
+```bash
+# Generate and open docs
+cargo doc --open
+
+# Generate docs for all dependencies
+cargo doc --open --document-private-items
+```
+
+## Release Process
+
+(For maintainers)
+
+1. Update version in all `Cargo.toml` and `pyproject.toml` files
+2. Update `CHANGELOG.md`
+3. Commit: `git commit -m "chore: release v0.1.8"`
+4. Tag: `git tag v0.1.8`
+5. Push: `git push origin main --tags`
+6. GitHub Actions builds and publishes releases
+
+## Questions?
+
+Open a [GitHub Discussion](https://github.com/vyomakesh0728/opengraphs/discussions) or issue.
+
+## Thank You!
+
+Every contribution, big or small, makes OpenGraphs better. We appreciate your time and effort.
+
+Made with love 💚 from india

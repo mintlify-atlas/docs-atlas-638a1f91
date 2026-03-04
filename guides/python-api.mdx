@@ -1,0 +1,323 @@
+---
+title: Python Client API
+description: Send metrics to OpenGraphs from Python training scripts
+---
+
+The `og_agent_chat` Python package provides a simple API for sending metrics, logs, and messages to the OpenGraphs daemon in real-time.
+
+## Installation
+
+```bash
+pip install og-agent-chat
+```
+
+Or install from source:
+
+```bash
+cd python/agent-chat
+pip install -e .
+```
+
+## Quick Start
+
+```python
+from og_agent_chat.client import send_metric
+
+for step in range(100):
+    loss = train_step()
+    send_metric("train/loss", loss, step=step)
+```
+
+## API Reference
+
+### `send_metric()`
+
+Send a scalar metric value to OpenGraphs.
+
+**Signature:**
+```python
+def send_metric(
+    metric: str,
+    value: float,
+    *,
+    step: int | None = None,
+    socket_path: str | Path = DEFAULT_SOCKET,
+) -> dict[str, Any]:
+```
+
+**Parameters:**
+- `metric` (str) - Metric name/tag (e.g., `"train/loss"`, `"val/accuracy"`)
+- `value` (float) - Metric value to log
+- `step` (int, optional) - Training step number. If not provided, metrics are logged without step association
+- `socket_path` (str | Path, optional) - Path to OpenGraphs daemon socket. Defaults to `$OGD_SOCKET` or `/tmp/opengraphs-ogd.sock`
+
+**Returns:**
+- `dict[str, Any]` - Response from the daemon
+
+**Raises:**
+- `OGDClientError` - If socket is not found or daemon doesn't respond
+
+**Example:**
+```python
+from og_agent_chat.client import send_metric
+
+# With step number
+send_metric("train/loss", 0.234, step=100)
+
+# Without step number
+send_metric("learning_rate", 0.001)
+```
+
+### `append_log()`
+
+Append a log line to the OpenGraphs log viewer.
+
+**Signature:**
+```python
+def append_log(line: str, socket_path: str | Path = DEFAULT_SOCKET) -> dict[str, Any]:
+```
+
+**Parameters:**
+- `line` (str) - Log message to append
+- `socket_path` (str | Path, optional) - Path to daemon socket
+
+**Returns:**
+- `dict[str, Any]` - Response from the daemon
+
+**Example:**
+```python
+from og_agent_chat.client import append_log
+
+append_log("Starting training...")
+append_log(f"Epoch {epoch} completed in {elapsed:.2f}s")
+```
+
+### `send_chat_message()`
+
+Send a message to the OpenGraphs chat interface.
+
+**Signature:**
+```python
+def send_chat_message(content: str, socket_path: str | Path = DEFAULT_SOCKET) -> dict[str, Any]:
+```
+
+**Parameters:**
+- `content` (str) - Message content
+- `socket_path` (str | Path, optional) - Path to daemon socket
+
+**Returns:**
+- `dict[str, Any]` - Response from the daemon
+
+### `get_chat_history()`
+
+Retrieve the chat history from OpenGraphs.
+
+**Signature:**
+```python
+def get_chat_history(socket_path: str | Path = DEFAULT_SOCKET) -> dict[str, Any]:
+```
+
+**Parameters:**
+- `socket_path` (str | Path, optional) - Path to daemon socket
+
+**Returns:**
+- `dict[str, Any]` - Chat history data
+
+### `set_training_file()`
+
+Tell OpenGraphs which file is the main training script.
+
+**Signature:**
+```python
+def set_training_file(path: str | Path, socket_path: str | Path = DEFAULT_SOCKET) -> dict[str, Any]:
+```
+
+**Parameters:**
+- `path` (str | Path) - Path to training script
+- `socket_path` (str | Path, optional) - Path to daemon socket
+
+**Returns:**
+- `dict[str, Any]` - Response from the daemon
+
+### `ping()`
+
+Check if the OpenGraphs daemon is running.
+
+**Signature:**
+```python
+def ping(socket_path: str | Path = DEFAULT_SOCKET) -> dict[str, Any]:
+```
+
+**Parameters:**
+- `socket_path` (str | Path, optional) - Path to daemon socket
+
+**Returns:**
+- `dict[str, Any]` - Pong response from the daemon
+
+## Real-World Example
+
+From `demo_train.py` in the OpenGraphs repository:
+
+```python
+import random
+import time
+from og_agent_chat.client import send_metric
+
+def report(metric, value, step):
+    """Helper function with error handling."""
+    try:
+        send_metric(metric, value, step=step)
+    except Exception:
+        pass  # Gracefully continue if OpenGraphs is not running
+
+def train():
+    TOTAL_STEPS = 100
+    LEARNING_RATE = 0.001
+    BATCH_SIZE = 32
+    
+    loss = 2.5
+    acc = 0.10
+    
+    for step in range(1, TOTAL_STEPS + 1):
+        # Simulate training
+        noise = random.gauss(0, 0.02)
+        loss = loss * 0.95 + noise
+        acc = min(0.95, acc + 0.01)
+        
+        # Report metrics
+        report("train/loss", loss, step)
+        report("train/accuracy", acc, step)
+        report("train/lr_effective", LEARNING_RATE, step)
+        report("train/grad_norm", abs(random.gauss(0.5, 0.2)), step)
+        report("train/throughput", BATCH_SIZE / 0.3, step)
+        
+        # System metrics every 5 steps
+        if step % 5 == 0:
+            report("sys/cpu_pct", get_cpu_usage(), step)
+            report("sys/ram_used_mb", get_memory_usage(), step)
+        
+        time.sleep(0.3)
+```
+
+## Socket Configuration
+
+The client communicates with OpenGraphs via a Unix domain socket.
+
+### Default Socket Path
+
+The socket path is determined in this order:
+
+1. `$OGD_SOCKET` environment variable
+2. `$TMPDIR/opengraphs-ogd.sock`
+3. `$TEMP/opengraphs-ogd.sock`
+4. `$TMP/opengraphs-ogd.sock`
+5. `/tmp/opengraphs-ogd.sock` (fallback)
+
+### Custom Socket Path
+
+You can override the socket path for all functions:
+
+```python
+from og_agent_chat.client import send_metric
+
+send_metric(
+    "train/loss",
+    0.5,
+    step=10,
+    socket_path="/custom/path/to.sock"
+)
+```
+
+Or set it globally via environment variable:
+
+```bash
+export OGD_SOCKET=/custom/path/to.sock
+python train.py
+```
+
+## Error Handling
+
+All functions raise `OGDClientError` if:
+
+- Socket file doesn't exist
+- Cannot connect to daemon
+- Daemon returns invalid response
+
+**Graceful degradation pattern:**
+
+```python
+from og_agent_chat.client import send_metric, OGDClientError
+
+def report_metric(metric, value, step):
+    try:
+        send_metric(metric, value, step=step)
+    except OGDClientError as e:
+        # Log error but continue training
+        print(f"Warning: Could not send metric: {e}")
+    except Exception:
+        # Silently continue if OpenGraphs is not available
+        pass
+```
+
+This pattern allows your training script to work with or without OpenGraphs running.
+
+## Protocol Details
+
+The client sends JSON-encoded messages over a Unix socket:
+
+**Request format:**
+```json
+{
+  "type": "metrics_update",
+  "metric": "train/loss",
+  "value": 0.234,
+  "step": 100
+}
+```
+
+**Response format:**
+```json
+{
+  "status": "ok"
+}
+```
+
+Messages are newline-delimited. The client waits for a newline-terminated response.
+
+## Integration with TensorBoard
+
+You can use the OpenGraphs client alongside TensorBoard:
+
+```python
+from torch.utils.tensorboard import SummaryWriter
+from og_agent_chat.client import send_metric
+
+writer = SummaryWriter(log_dir="runs/experiment")
+
+for step in range(100):
+    loss = train_step()
+    
+    # Log to both TensorBoard and OpenGraphs
+    writer.add_scalar("train/loss", loss, step)
+    send_metric("train/loss", loss, step=step)
+```
+
+This gives you:
+- TensorBoard's rich visualization features
+- OpenGraphs' real-time monitoring and AI assistant
+- Persistent event files for later analysis
+
+## Performance Considerations
+
+- Socket communication is fast (microseconds per call)
+- No blocking or significant overhead on training
+- Failed sends are non-blocking (socket timeout is reasonable)
+- No buffering - metrics are sent immediately
+
+For high-frequency logging (e.g., per-batch metrics in large-scale training), consider:
+
+```python
+# Log every N steps instead of every step
+if step % 10 == 0:
+    send_metric("train/loss", loss, step=step)
+```

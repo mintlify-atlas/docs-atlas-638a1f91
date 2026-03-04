@@ -1,0 +1,157 @@
+---
+title: Runtime backends
+description: Configure where your training runs execute
+---
+
+OpenGraphs supports multiple runtime backends for executing training jobs. The runtime determines where your code runs and how OpenGraphs monitors it.
+
+## Available runtimes
+
+### Local (default)
+
+Runs training on the current machine using standard process execution.
+
+```bash
+og run train.py --runtime local
+```
+
+**Characteristics:**
+- Executes via shell on the local system
+- Full access to local filesystem and GPUs
+- Daemon and TUI run on the same machine
+- Default if `--runtime` is not specified
+
+**Use cases:**
+- Development and debugging
+- Single-machine training
+- Workstation or remote server access via SSH
+
+### Modal
+
+Integration with Modal for serverless GPU compute (currently in development).
+
+```bash
+og run train.py --runtime modal
+```
+
+<Note>
+Modal runtime is currently a scaffold. It runs training locally while the remote adapter is being finalized.
+</Note>
+
+**Planned features:**
+- Automatic GPU provisioning
+- Container-based execution
+- Remote metric streaming
+- Cost tracking
+
+## Configuring runtime
+
+### Command-line flag
+
+Specify runtime for a single run:
+
+```bash
+og run train.py --runtime local
+og run train.py --runtime modal
+```
+
+### Environment variable
+
+Set a default runtime for all commands:
+
+```bash
+export OG_RUNTIME=local
+og run train.py  # Uses local runtime
+```
+
+## Runtime-specific behavior
+
+### Process lifecycle
+
+**Local runtime:**
+- Training process is a direct child of the daemon
+- Inherits environment variables from the shell
+- Signal handling: SIGTERM for graceful shutdown
+- Exit codes propagate to the daemon
+
+**Modal runtime (planned):**
+- Training runs in a remote container
+- Metrics streamed over network
+- Logs tailed via Modal API
+- Container lifecycle managed by Modal
+
+### Metric collection
+
+Both runtimes read TensorBoard event files, but the file paths differ:
+
+**Local:**
+```bash
+--path runs/  # Local filesystem path
+```
+
+**Modal (planned):**
+```bash
+--path /modal-volumes/runs/  # Remote volume mount
+```
+
+## Switching runtimes
+
+You can switch between runtimes without changing your training code:
+
+```bash
+# Develop locally
+og run train.py --runtime local --auto supervised
+
+# Deploy to Modal for production run
+og run train.py --runtime modal --auto autonomous
+```
+
+Your training script, metrics, and agent configuration remain the same.
+
+## Runtime implementation
+
+The runtime abstraction is defined in `crates/ogtui/src/main.rs`:
+
+```rust
+enum RuntimeArg {
+    Local,
+    Modal,
+}
+```
+
+New runtimes can be added by:
+1. Extending the `RuntimeArg` enum
+2. Implementing the execution adapter
+3. Adding metric streaming support
+
+## Troubleshooting
+
+### Local runtime issues
+
+**Training process not starting:**
+- Verify the script path is correct
+- Check file permissions (`chmod +x train.py`)
+- Ensure dependencies are installed
+
+**Metrics not appearing:**
+- Confirm TensorBoard logging is enabled in your script
+- Check the `--path` matches your `TB_LOG_DIR`
+- Verify `.tfevents` files are being written
+
+### Modal runtime issues
+
+**Modal runtime not available:**
+- Modal integration is currently in development
+- Training will fall back to local execution
+- Watch the GitHub repository for updates
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Environment variables" icon="gear" href="/cli/environment-variables">
+    Configure runtime behavior with env vars
+  </Card>
+  <Card title="Remote training" icon="server" href="/guides/remote-training">
+    Run training over SSH with the local runtime
+  </Card>
+</CardGroup>

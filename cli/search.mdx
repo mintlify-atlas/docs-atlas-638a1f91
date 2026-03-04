@@ -1,0 +1,260 @@
+---
+title: 'og search'
+description: 'Search for metrics across runs and projects'
+---
+
+## Overview
+
+The `og search` command searches for metrics by name across all runs in your workspace.
+
+## Subcommands
+
+- [`og search metrics`](#search-metrics) - Search metric names across runs
+
+---
+
+## Search Metrics
+
+Search for metrics by name pattern across all runs in a project or root directory.
+
+### Syntax
+
+```bash
+og search metrics [OPTIONS]
+```
+
+### Options
+
+<ParamField path="--query" type="string" required>
+  Search query string (case-insensitive substring match)
+  
+  **Example:**
+  ```bash
+  og search metrics --query loss
+  og search metrics --query "gpu_util"
+  ```
+</ParamField>
+
+<ParamField path="--path" type="path" default="runs/">
+  Root runs directory to search
+  
+  **Example:**
+  ```bash
+  og search metrics --query accuracy --path experiments/
+  ```
+</ParamField>
+
+<ParamField path="--project" type="string">
+  Project name to limit search scope
+  
+  **Example:**
+  ```bash
+  og search metrics --query loss --project image-classification
+  ```
+</ParamField>
+
+## Output
+
+### Text Format (Default)
+
+```
+search metrics query='loss'
+- train/loss (run-123)
+- val/loss (run-123)
+- train/loss (run-124)
+- val/loss (run-124)
+- test/loss (run-125)
+```
+
+**If no matches found:**
+```
+search metrics query='xyz'
+- none
+```
+
+### JSON Format
+
+Add `--json` flag for structured output:
+
+```bash
+og search metrics --query loss --json
+```
+
+**Output:**
+```json
+{
+  "command": "search.metrics",
+  "data": {
+    "query": "loss",
+    "count": 5,
+    "matches": [
+      {
+        "metric": "train/loss",
+        "run": "run-123",
+        "path": "runs/run-123"
+      },
+      {
+        "metric": "val/loss",
+        "run": "run-123",
+        "path": "runs/run-123"
+      },
+      {
+        "metric": "train/loss",
+        "run": "run-124",
+        "path": "runs/run-124"
+      },
+      {
+        "metric": "val/loss",
+        "run": "run-124",
+        "path": "runs/run-124"
+      },
+      {
+        "metric": "test/loss",
+        "run": "run-125",
+        "path": "runs/run-125"
+      }
+    ]
+  }
+}
+```
+
+## Search Behavior
+
+- **Case-insensitive**: Query `"LOSS"` matches `"train/loss"`, `"Loss"`, `"LOSS"`
+- **Substring match**: Query `"acc"` matches `"train/accuracy"`, `"val/acc"`, `"macro_accuracy"`
+- **Sorted output**: Results are sorted alphabetically by metric name
+- **All runs**: Searches across all runs in the specified path/project
+
+## Examples
+
+### Basic Search
+
+```bash
+# Find all metrics containing 'loss'
+og search metrics --query loss
+
+# Find all accuracy metrics
+og search metrics --query accuracy
+
+# Find GPU-related metrics
+og search metrics --query gpu
+```
+
+### Search in Project
+
+```bash
+# Search within specific project
+og search metrics --query loss --project image-classification
+```
+
+### Search in Custom Directory
+
+```bash
+# Search in experiments/ directory
+og search metrics --query reward --path experiments/
+```
+
+### Case-Insensitive Search
+
+```bash
+# All of these match the same metrics
+og search metrics --query LOSS
+og search metrics --query Loss
+og search metrics --query loss
+```
+
+### System Metrics
+
+```bash
+# Find all GPU metrics
+og search metrics --query gpu
+
+# Find memory metrics
+og search metrics --query memory
+
+# Find CPU metrics
+og search metrics --query cpu
+```
+
+### JSON Output for Processing
+
+```bash
+# Get all loss metrics as JSON
+og search metrics --query loss --json
+
+# Extract unique metric names with jq
+og search metrics --query loss --json | jq -r '.data.matches[].metric' | sort -u
+
+# Count matches per run
+og search metrics --query loss --json | jq '.data.matches | group_by(.run) | map({run: .[0].run, count: length})'
+```
+
+## Use Cases
+
+### Find All Variants of a Metric
+
+```bash
+# Find all loss-related metrics
+og search metrics --query loss
+
+# Results might include:
+# - train/loss
+# - val/loss
+# - test/loss
+# - total_loss
+# - cls_loss
+# - bbox_loss
+```
+
+### Discover Available Metrics
+
+```bash
+# Broad search to see what's tracked
+og search metrics --query train
+
+# Find all validation metrics
+og search metrics --query val
+```
+
+### Monitor System Resources
+
+```bash
+# Find all system metrics
+og search metrics --query sys
+
+# Find specific resource metrics
+og search metrics --query vram
+og search metrics --query disk
+```
+
+### Cross-Run Analysis
+
+```bash
+# Find which runs track a specific metric
+og search metrics --query learning_rate --json | jq -r '.data.matches[].run' | sort -u
+```
+
+## Exit Codes
+
+- `0` - Success (even if no matches found)
+- `1` - Error reading runs or invalid arguments
+
+## Notes
+
+- The query is a simple substring match, not a regex pattern
+- Empty query strings will match all metrics
+- The search scans all .tfevents files in all run directories
+- Results are sorted alphabetically by metric name first, then by run name
+- Duplicate metric names across runs are included separately
+
+## Performance Considerations
+
+- Searching large workspaces (100+ runs) may take several seconds
+- Each run's .tfevents files must be parsed to extract metric names
+- Consider using `--project` to limit search scope for faster results
+
+## Related Commands
+
+- [`og list metrics`](/cli/list#list-metrics) - List all metrics in a specific run
+- [`og get metric`](/cli/get#get-metric) - Get metric time series data
+- [`og compare`](/cli/compare) - Compare a metric across multiple runs

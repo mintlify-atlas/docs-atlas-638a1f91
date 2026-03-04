@@ -1,0 +1,391 @@
+---
+title: AI Agent
+description: Use the OpenGraphs AI agent to automatically diagnose training issues and suggest code fixes
+---
+
+## Overview
+
+The OpenGraphs AI agent monitors your training runs, detects anomalies, and proposes code fixes when metrics plateau or degrade. It operates in multiple modes ranging from passive observation to fully autonomous refactoring.
+
+## How the Agent Works
+
+The agent combines:
+
+1. **Metric monitoring** - Tracks trends and detects anomalies via alert rules
+2. **Log analysis** - Parses training output for errors and warnings
+3. **Codebase awareness** - Indexes your training script and project files
+4. **LLM reasoning** - Uses DSPy/OpenAI to diagnose issues and generate fixes
+5. **Safe execution** - Creates checkpoints before applying any code changes
+
+### Architecture
+
+The agent runs as a daemon process (`og_agent_chat.server`) that:
+
+- Communicates with the TUI via Unix socket (`/tmp/opengraphs-ogd.sock`)
+- Monitors the `RunState` for alerts and metric changes
+- Responds to chat messages from users
+- Applies refactors (in auto mode) or proposes them for approval
+
+## Operating Modes
+
+The agent has four operational modes:
+
+### 1. Observe Mode (Default)
+
+The agent monitors passively but does not take action.
+
+```bash
+# Start daemon without auto mode
+python3 -m og_agent_chat.server --training-file train.py --codebase-root .
+```
+
+**Behavior:**
+- Detects alerts when metrics cross thresholds
+- Sends diagnosis to chat when asked
+- **Does not apply code changes** - User must manually edit
+
+### 2. Suggest Mode
+
+The agent proposes refactors but waits for user approval.
+
+```bash
+# Start TUI with agent (no auto flag)
+ogtui --path runs/ --training-file train.py --codebase-root .
+```
+
+**Behavior:**
+- Analyzes alerts and suggests fixes in chat
+- Generates unified diffs for proposed changes
+- **Waits for approval** - User presses `y` to apply or `n` to reject
+- Shows "pending refactor" banner in Chat tab
+
+### 3. Supervised Mode
+
+Alias for Suggest mode. Agent proposes but requires human approval.
+
+### 4. Autonomous Mode
+
+The agent automatically applies refactors without user intervention.
+
+```bash
+# CLI with autonomous mode
+og run demo_train.py --auto autonomous
+
+# TUI with autonomous mode
+ogtui --path runs/ --training-file train.py --auto
+
+# Daemon with auto flag
+python3 -m og_agent_chat.server --training-file train.py --auto
+```
+
+**Behavior:**
+- Detects alerts automatically
+- Generates diagnosis and code fix
+- **Applies changes immediately** without approval
+- Creates checkpoint before editing (for rollback)
+- Restarts training process after successful refactor
+
+**Visual indicator:**
+```
+⚡ Auto mode: Agent will apply fixes automatically
+```
+
+## Alert Detection
+
+The agent monitors metrics using configurable alert rules. Default rules detect:
+
+### Plateau Detection
+Triggers when a metric stops improving:
+- **Metric**: Any metric with "loss" in name
+- **Threshold**: No improvement for 50 consecutive steps
+- **Alert**: "loss plateau detected"
+
+### Degradation Detection  
+Triggers when a metric worsens:
+- **Metric**: Reward or accuracy metrics
+- **Threshold**: 10% drop from recent average
+- **Alert**: "metric degraded"
+
+### Custom Alert Rules
+
+Define rules via environment variable:
+
+```bash
+export OG_ALERT_RULES='[
+  {
+    "metric": "train/loss",
+    "threshold": 1.0,
+    "condition": "above",
+    "message": "Loss too high"
+  }
+]'
+```
+
+Rule schema:
+- `metric`: Metric tag name (supports wildcards)
+- `threshold`: Numeric threshold
+- `condition`: `"above"`, `"below"`, `"plateau"`, `"degrade"`
+- `message`: Description shown in alert
+
+## Diagnosis Process
+
+When an alert triggers, the agent:
+
+### 1. Gathers Context
+
+Collects:
+- **Alert details**: Metric name, threshold, current value
+- **Recent metrics**: Last 20 values of all metrics
+- **Log tail**: Last 50 log lines
+- **Training script**: Full source code
+- **Codebase files**: Indexed file listing
+
+### 2. Analyzes with Tools
+
+The agent uses DSPy ReAct with these tools:
+
+| Tool | Purpose |
+|------|--------|
+| `alert_summary()` | Get latest alert details |
+| `list_metrics()` | List all available metrics |
+| `metric_tail(metric, n)` | Get last n values of a metric |
+| `log_tail(n)` | Get last n log lines |
+| `read_training_file()` | Read training script content |
+| `list_codebase_files(limit)` | List codebase files |
+| `search_codebase(pattern, max_matches)` | Regex search across files |
+| `explore_codebase(query)` | RLM-powered codebase search |
+
+### 3. Generates Diagnosis
+
+Produces a structured response:
+
+```
+DIAGNOSIS: Learning rate 0.01 is too high, causing loss oscillation
+ACTION: refactor
+CODE_CHANGES:
+--- demo_train.py
++++ demo_train.py
+@@ -10,1 +10,1 @@
+-LEARNING_RATE = 0.01
++LEARNING_RATE = 0.001
+```
+
+**Action types:**
+- `explain` - Provide guidance but no code changes
+- `refactor` - Apply a code fix via unified diff
+
+### 4. Applies Fix (Auto Mode Only)
+
+In autonomous mode:
+1. **Create checkpoint** - Saves original training file to `.og_checkpoints/ckpt_<timestamp>/`
+2. **Apply diff** - Parses unified diff and patches the file
+3. **Restart training** - Kills old process, launches new one
+4. **Monitor results** - Continues tracking metrics
+5. **Rollback on failure** - Restores from checkpoint if patch fails
+
+## Fast-Path for demo_train.py
+
+The agent has built-in heuristics for the demo training script:
+
+**Detected patterns:**
+- `LEARNING_RATE` too high (\>0.001) → Lower to 0.001
+- `WARMUP_STEPS` too short (\<20) → Increase to 20
+- `PEAK_LR_MULT` too aggressive (\>1.0) → Set to 1.0
+- `BATCH_SIZE` too large (\>32) → Reduce to 32
+
+**Fast-path behavior:**
+- Bypasses LLM call for known stabilization fixes
+- Applies regex-based transformations directly
+- Generates diagnosis: "Detected unstable demo defaults"
+
+This reduces latency and API costs for common scenarios.
+
+## Chat Interaction
+
+You can chat with the agent directly in the Chat tab.
+
+### Sending Messages
+
+1. Press `i` to focus input
+2. Type your message
+3. Press `Enter` to send
+
+**Example messages:**
+```
+Why is my loss plateauing?
+How can I improve convergence?
+Refactor the learning rate schedule
+```
+
+### Agent Responses
+
+The agent replies with:
+- **Diagnosis**: Analysis of the issue
+- **Code changes** (if applicable): Unified diff
+- **Summary**: Extracted variable changes (e.g., `LEARNING_RATE: 0.01 -> 0.001`)
+
+### Approving Refactors
+
+When a refactor is proposed:
+
+1. **Review the diff** in chat (syntax-highlighted)
+2. **Check the summary** (e.g., "Refactor summary: LEARNING_RATE: 0.01 -> 0.001")
+3. Press `y` to apply or `n` to reject
+
+After approval:
+```
+[system] Code refactored from checkpoint ckpt_1234567890.
+```
+
+## Checkpointing & Rollback
+
+Every refactor creates a checkpoint:
+
+**Checkpoint structure:**
+```
+.og_checkpoints/
+  ckpt_1234567890/
+    train.py          # Original training file
+    state.json        # Metrics snapshot
+```
+
+If a refactor fails:
+```
+[system] Refactor failed: Patch context does not match file. Rolled back.
+```
+
+The original file is restored from the checkpoint.
+
+## Codebase Indexing
+
+The agent indexes your project for context-aware suggestions.
+
+**Indexed by default:**
+- Python files (`.py`)
+- YAML/TOML configs
+- Training scripts
+- Common data loaders
+
+**Indexing is lazy** - Only triggered when agent receives a message or alert.
+
+**Codebase root:**
+```bash
+# Set via CLI
+ogtui --codebase-root /path/to/project
+
+# Or daemon
+python3 -m og_agent_chat.server --codebase-root /path/to/project
+```
+
+## System Prompt
+
+The agent operates under this policy:
+
+1. **Prefer small, reversible refactors** over large rewrites
+2. **Use metric trends**, not single noisy points
+3. **Stop proposing edits** if recent refactors don't improve target metric
+4. **Never invent files** - Only modify the training script unless asked
+5. **Produce valid unified diffs** without markdown fences
+6. **For runtime failures** (OOM, timeout): Identify cause first, propose minimal fixes (batch size, grad accum, seq length)
+7. **Keep changes bounded** and reversible in one patch
+
+## OOM Recovery
+
+The agent detects Out-of-Memory failures and can auto-recover:
+
+**Detection triggers:**
+- Log contains "OOM", "out of memory", "CUDA out of memory"
+- Process killed with exit code 137 (SIGKILL)
+- Runtime failure with error type "MemoryError"
+
+**Recovery strategy:**
+1. Reduce `BATCH_SIZE` (halve, min=1)
+2. Increase `GRAD_ACCUM_STEPS` (double, max=64)
+3. Reduce `SEQ_LEN` / `BLOCK_SIZE` (halve, min=128)
+
+Environment variables used:
+- Batch: `DEMO_BATCH`, `BATCH_SIZE`, `MICRO_BATCH_SIZE`, `PER_DEVICE_TRAIN_BATCH_SIZE`
+- Grad accum: `GRAD_ACCUM_STEPS`, `GRADIENT_ACCUMULATION_STEPS`
+- Seq length: `SEQ_LEN`, `MAX_SEQ_LEN`, `BLOCK_SIZE`, `CONTEXT_LENGTH`
+
+## Configuration
+
+### Environment Variables
+
+```bash
+# OpenAI API key (required for LLM)
+export OPENAI_API_KEY="sk-..."
+
+# Socket path (default: /tmp/opengraphs-ogd.sock)
+export OGD_SOCKET="/custom/path/to/ogd.sock"
+
+# Alert rules JSON
+export OG_ALERT_RULES='[{...}]'
+```
+
+### Daemon Flags
+
+```bash
+python3 -m og_agent_chat.server \
+  --training-file train.py \
+  --codebase-root . \
+  --auto \
+  --socket-path /tmp/ogd.sock \
+  --max-retries 3
+```
+
+## Limitations
+
+**Current constraints:**
+- Only modifies the training script (not data loaders, configs, etc.)
+- Limited to unified diff patches (no multi-file edits)
+- Requires OpenAI API access (no local LLM support yet)
+- Alert detection is rule-based (no learned anomaly detection)
+
+**Best practices:**
+- Start in **Suggest mode** to review agent proposals
+- Enable **Autonomous mode** only after validating behavior
+- Keep training scripts simple and focused
+- Use descriptive metric names (e.g., `train/loss` not `metric_0`)
+
+## Troubleshooting
+
+### Agent Not Responding
+
+**Check daemon connection:**
+```bash
+# In another terminal
+python3 -m og_agent_chat.server --training-file train.py --codebase-root .
+```
+
+**Verify socket:**
+```bash
+ls -l /tmp/opengraphs-ogd.sock
+# Should show: srwxr-xr-x (socket file)
+```
+
+### Refactor Failed
+
+**Common causes:**
+- Diff context doesn't match file (script was edited externally)
+- Invalid diff syntax from LLM
+- File permissions issue
+
+**Solution:**
+- Check chat for error message
+- Review `.og_checkpoints/` for rollback state
+- Manually apply fix if needed
+
+### Agent Produces Bad Fixes
+
+**Mitigation:**
+- Use **Suggest mode** to review before applying
+- Provide clearer metric names and logging
+- Add context to chat: "The model is overfitting, not underfitting"
+- Adjust alert thresholds to reduce false positives
+
+## Next Steps
+
+- Learn about [experiment tracking](/guides/tracking-experiments) workflows
+- Master [TUI navigation](/guides/tui-interface) shortcuts
+- Set up [remote training](/guides/remote-training) over SSH

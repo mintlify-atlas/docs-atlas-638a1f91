@@ -1,0 +1,313 @@
+---
+title: TUI Interface
+description: Master the OpenGraphs terminal interface with tabs, keyboard shortcuts, and navigation features
+---
+
+## Overview
+
+The OpenGraphs TUI is built with Ratatui and provides four main tabs for monitoring and interacting with ML training runs. The interface is designed for efficiency with keyboard-first navigation and mouse support.
+
+## Tab Navigation
+
+OpenGraphs has four tabs, accessible via `Tab` / `Shift+Tab` to cycle through:
+
+1. **Chat** - Agent interaction and command interface
+2. **Graphs** - Metric visualization grid
+3. **Procs** - Process monitoring (CPU, memory, state)
+4. **Logs** - Event log viewer
+
+The active tab is highlighted in green with bold text. Inactive tabs appear dimmed.
+
+## Chat Tab
+
+### Purpose
+Interact with the AI agent, send messages, approve refactors, and run inline CLI commands.
+
+### Layout
+- **Auto-mode banner** (if enabled): Yellow banner at top
+- **Messages area**: Scrollable chat history
+- **Pending refactor prompt** (if applicable): Shows approve/reject controls
+- **Input field**: Type messages or commands
+- **Status bar**: Shows daemon connection status
+
+### Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| `i` | Focus chat input (insert mode) |
+| `Enter` | Send message (when input focused) |
+| `Esc` | Unfocus chat input |
+| `j` / `↓` | Scroll messages down |
+| `k` / `↑` | Scroll messages up |
+| `y` | Approve pending refactor |
+| `n` | Reject pending refactor |
+
+### Message Display
+
+**Sender colors:**
+- **You** (user): Emerald green (`#34d399`)
+- **Agent**: Blue (`#60a5fa`)
+- **System**: Dim gray (`#6b7280`)
+
+**Diff syntax highlighting:**
+- Lines starting with `+` (not `+++`): Green (added)
+- Lines starting with `-` (not `---`): Red (removed)
+- Lines starting with `@@`: Cyan (hunk headers)
+- Lines with `---` or `+++`: Dim bold (file headers)
+
+### Inline Commands
+
+Run `og` CLI commands directly in chat by prefixing with `!og`:
+
+```
+!og run demo_train.py --runtime modal --auto autonomous
+!og list runs --path runs/
+!og get metric --path runs/ --run <run-id> --metric train/loss
+```
+
+### Daemon Connection Status
+
+The status bar shows:
+- **● Green**: Connected to daemon
+- **● Yellow**: Disconnected
+- **"thinking..."**: Agent is processing
+- **"pending refactor"**: Waiting for user approval
+
+If disconnected, the TUI shows instructions:
+
+```
+Start with built-in daemon:
+  ogtui --path runs/ --training-file train.py
+
+Or start daemon separately:
+  python3 -m og_agent_chat.server --training-file train.py
+```
+
+## Graphs Tab
+
+### Purpose
+Visualize all scalar metrics in a responsive grid layout.
+
+### Layout
+- **Left panel (74%)**: Metric cards grid
+- **Right panel (26%)**: Stats sidebar
+
+### Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| `h` / `←` | Select previous metric |
+| `l` / `→` | Select next metric |
+| `j` / `↓` | Scroll grid down one row |
+| `k` / `↑` | Scroll grid up one row |
+| `Enter` | Enlarge selected metric (fullscreen) |
+| `Esc` | Exit fullscreen view |
+
+### Metric Card Features
+
+Each card displays:
+- **Title**: Metric name (truncated if needed)
+- **Line chart**: Braille marker rendering
+- **Latest value**: Bottom-right, orange bold
+
+Selected metric has a **green border**.
+
+### Grid Behavior
+
+- **Auto-layout**: Calculates 4 columns by default (adjusts to terminal width)
+- **Scroll indicator**: Shows visible range (e.g., `[1-12/48]`)
+- **Auto-scroll**: Selected metric stays visible when navigating
+
+### Fullscreen Mode
+
+Press `Enter` to enlarge a metric:
+
+- Larger chart with labeled axes
+- Statistics bar showing:
+  - Latest value
+  - Min/Max values
+  - Total points
+  - Step range
+- Press `Esc` to return to grid
+
+### Stats Sidebar
+
+Shows:
+- **path**: Event file directory
+- **tags**: Number of unique metrics
+- **events**: Total TensorBoard events parsed
+- **step**: Maximum step observed
+
+## Procs Tab
+
+### Purpose
+Monitor running and recently exited processes related to training.
+
+### Display Sections
+
+**1. Running Processes**
+- Live snapshot of active processes
+- Shows: PID, state, uptime, CPU%, MEM%, PPID, command
+- Sorted by: CPU (default), Memory, PID, or Elapsed Time
+
+**2. Recently Exited**
+- Processes that terminated since last snapshot
+- Shows: PID, exit time (e.g., "5m ago"), stats before exit
+- Newest first
+
+### Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| `j` / `↓` | Scroll down |
+| `k` / `↑` | Scroll up |
+
+### Process States
+
+| State | Label | Color |
+|-------|-------|-------|
+| `R` | running | Green bold |
+| `S` | sleeping | Dim |
+| `D` | io-wait | Red bold |
+| `T` | stopped | Amber |
+| `Z` | zombie | Red bold |
+| `I` | idle | Dim |
+
+### Summary Line
+
+Shows aggregate stats:
+- **running**: Total active processes
+- **high-cpu**: Processes using ≥25% CPU
+- **zombie**: Dead processes not reaped
+
+### Sort Modes
+
+The daemon can be configured to sort by:
+- **CPU usage** (default) - Highest first
+- **Memory usage** - Highest first
+- **PID** - Lowest first
+- **Elapsed time** - Longest running first
+
+## Logs Tab
+
+### Purpose
+View structured event logs and training output.
+
+### Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| `j` / `↓` | Scroll down |
+| `k` / `↑` | Scroll up (disables auto-follow) |
+
+### Log Styling
+
+| Prefix | Color | Weight |
+|--------|-------|--------|
+| `[ERROR]` | Red | Bold |
+| `[SUCCESS]` or `[SUCESS]` | Green | Bold |
+| `[IMPORTANT]` | Amber | Bold |
+| `[INFO]` | Ash gray | Normal |
+| `--` (start) | Border color | Normal |
+| Default | Light gray | Normal |
+
+### Auto-Follow Behavior
+
+- **Enabled by default**: New lines auto-scroll to bottom
+- **Disable**: Scroll up with `k` or `↑`
+- **Re-enable**: Scroll to bottom with `j` or `↓`
+
+### Live Logs Mode
+
+When the daemon is running training:
+- Logs switch to "live run log" mode
+- Header shows: `-- live run log --`
+- Daemon updates streamed in real-time
+
+## Global Keyboard Shortcuts
+
+Available in all tabs:
+
+| Key | Action |
+|-----|--------|
+| `Tab` | Next tab (Chat → Graphs → Procs → Logs) |
+| `Shift+Tab` | Previous tab |
+| `?` | Toggle help modal |
+| `q` | Quit application |
+| `F6` | Toggle copy mode (enables text selection) |
+| `Esc` | Close help / exit focused view |
+
+## Help Modal
+
+Press `?` to open the shortcuts overlay:
+
+- Shows all keyboard bindings
+- Centered modal with border
+- Press `Esc` or `?` to close
+
+## Copy Mode
+
+Press `F6` to enable copy mode:
+
+- **Disables mouse capture** - Allows terminal text selection
+- **Yellow banner** appears: `COPY MODE │ Drag mouse to highlight/copy text │ F6 resume interactive mode`
+- Useful for copying metrics, logs, or error messages
+- Press `F6` again to return to interactive mode
+
+## Footer Bar
+
+Context-sensitive shortcuts displayed at bottom:
+
+**Chat tab:**
+```
+Tab switch │ j/k scroll │ F6 copy │ ? help │ q quit
+```
+
+**Graphs tab:**
+```
+Tab switch │ ? help │ q quit │ h/l metrics │ j/k scroll │ F6 copy
+```
+
+**Other tabs:**
+```
+Tab switch │ ? help │ q quit │ j/k scroll │ F6 copy
+```
+
+## Mouse Support
+
+The TUI supports mouse interactions:
+
+- **Click tabs** to switch between Chat/Graphs/Procs/Logs
+- **Click metric cards** to enlarge them
+- **Scroll wheel** to navigate logs/chat/processes
+
+Mouse support is disabled in copy mode (F6).
+
+## Color Scheme
+
+The TUI uses a dark theme with carefully chosen colors:
+
+| Element | Color | Hex |
+|---------|-------|-----|
+| Primary accent | Green | `#2ecc71` |
+| Borders | Crystal white | `#f4faff` |
+| Dim text | Gray | `#9ba3af` |
+| Light text | Light gray | `#d1d5db` |
+| Background | Dark | `#0d1117` |
+| Chart (raw data) | Cornflower blue | `#6495ed` |
+| Chart (value labels) | Orange | `#ffa500` |
+| Log errors | Bright red | `#f87171` |
+| Log important | Bright amber | `#fbbf24` |
+
+## Terminal Requirements
+
+- **Minimum width**: 80 columns recommended
+- **Minimum height**: 24 rows recommended
+- **True color support**: Optional but enhances appearance
+- **Unicode support**: Required for Braille charts and symbols
+
+## Next Steps
+
+- Set up [experiment tracking](/guides/tracking-experiments) workflows
+- Configure the [AI agent](/guides/ai-agent) for automated diagnostics
+- Learn about [remote training](/guides/remote-training) over SSH

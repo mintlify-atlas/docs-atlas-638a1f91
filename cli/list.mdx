@@ -1,0 +1,377 @@
+---
+title: 'og list'
+description: 'List projects, runs, metrics, and system metrics'
+---
+
+## Overview
+
+The `og list` command provides subcommands for listing various entities in your OpenGraphs workspace.
+
+## Subcommands
+
+- [`og list projects`](#list-projects) - List available projects
+- [`og list runs`](#list-runs) - List training runs
+- [`og list metrics`](#list-metrics) - List metrics in a run
+- [`og list system-metrics`](#list-system-metrics) - List system metrics in a run
+
+---
+
+## List Projects
+
+List all projects in the runs directory. A project is a directory containing run subdirectories.
+
+### Syntax
+
+```bash
+og list projects [OPTIONS]
+```
+
+### Options
+
+<ParamField path="--path" type="path" default="runs/">
+  Root directory to scan for projects
+  
+  **Example:**
+  ```bash
+  og list projects --path experiments/
+  ```
+</ParamField>
+
+### Output
+
+**Text format:**
+```
+projects in runs/
+- image-classification (12)
+- language-modeling (5)
+- reinforcement-learning (8)
+```
+
+**JSON format:**
+```bash
+og list projects --json
+```
+
+```json
+{
+  "command": "list.projects",
+  "data": {
+    "root": "runs/",
+    "projects": [
+      {
+        "name": "image-classification",
+        "path": "runs/image-classification",
+        "run_count": 12
+      },
+      {
+        "name": "language-modeling",
+        "path": "runs/language-modeling",
+        "run_count": 5
+      }
+    ]
+  }
+}
+```
+
+### Examples
+
+```bash
+# List projects in default runs/ directory
+og list projects
+
+# List projects in custom directory
+og list projects --path experiments/
+
+# Get JSON output
+og list projects --json
+```
+
+---
+
+## List Runs
+
+List all training runs in a project or root directory.
+
+### Syntax
+
+```bash
+og list runs [OPTIONS]
+```
+
+### Options
+
+<ParamField path="--path" type="path" default="runs/">
+  Root runs directory
+  
+  **Example:**
+  ```bash
+  og list runs --path experiments/
+  ```
+</ParamField>
+
+<ParamField path="--project" type="string">
+  Project name to filter runs
+  
+  **Example:**
+  ```bash
+  og list runs --project image-classification
+  ```
+</ParamField>
+
+<ParamField path="--tag" type="string" repeatable>
+  Filter runs by tag (can be used multiple times, all must match)
+  
+  **Example:**
+  ```bash
+  og list runs --tag resnet --tag gpu
+  ```
+</ParamField>
+
+<ParamField path="--config" type="string" repeatable>
+  Filter runs by config key (can be used multiple times, all must match)
+  
+  **Example:**
+  ```bash
+  og list runs --config lr=0.001 --config batch=32
+  ```
+</ParamField>
+
+<ParamField path="--status" type="string">
+  Filter runs by status
+  
+  **Values:**
+  - `running` - Updated within last 120 seconds
+  - `inactive` - Not updated recently
+  - `unknown` - No modification time available
+  
+  **Example:**
+  ```bash
+  og list runs --status running
+  ```
+</ParamField>
+
+### Output
+
+**Text format:**
+```
+runs in runs/
+- run-123 | status=running | metrics=45 | step=1000
+- run-124 | status=inactive | metrics=38 | step=500
+- run-125 | status=running | metrics=42 | step=750
+```
+
+**JSON format:**
+```json
+{
+  "command": "list.runs",
+  "data": {
+    "base": "runs/",
+    "count": 3,
+    "runs": [
+      {
+        "id": "run-123",
+        "path": "runs/run-123",
+        "metric_count": 45,
+        "event_count": 1000,
+        "max_step": 1000,
+        "status": "running",
+        "last_updated_unix": 1709567890
+      }
+    ]
+  }
+}
+```
+
+### Examples
+
+```bash
+# List all runs
+og list runs
+
+# List runs in a specific project
+og list runs --project image-classification
+
+# List only running runs
+og list runs --status running
+
+# Filter by tags
+og list runs --tag gpu --tag resnet
+
+# Filter by config
+og list runs --config lr=0.001
+
+# Combine filters
+og list runs --project image-classification --status running --tag gpu
+```
+
+---
+
+## List Metrics
+
+List all metrics tracked in a specific run.
+
+### Syntax
+
+```bash
+og list metrics [OPTIONS]
+```
+
+### Options
+
+<ParamField path="--path" type="path" default="runs/">
+  Root runs directory
+</ParamField>
+
+<ParamField path="--project" type="string">
+  Project name
+</ParamField>
+
+<ParamField path="--run" type="string" required>
+  Run ID
+  
+  **Example:**
+  ```bash
+  og list metrics --run run-123
+  ```
+</ParamField>
+
+### Output
+
+**Text format:**
+```
+metrics in runs/run-123
+- train/loss
+- train/accuracy
+- train/learning_rate
+- val/loss
+- val/accuracy
+```
+
+**JSON format:**
+```json
+{
+  "command": "list.metrics",
+  "data": {
+    "run": "runs/run-123",
+    "system_only": false,
+    "count": 5,
+    "metrics": [
+      "train/loss",
+      "train/accuracy",
+      "train/learning_rate",
+      "val/loss",
+      "val/accuracy"
+    ]
+  }
+}
+```
+
+### Examples
+
+```bash
+# List all metrics in a run
+og list metrics --run run-123
+
+# List metrics in a project run
+og list metrics --project image-classification --run run-001
+
+# JSON output
+og list metrics --run run-123 --json
+```
+
+---
+
+## List System Metrics
+
+List only system/hardware metrics in a specific run.
+
+### Syntax
+
+```bash
+og list system-metrics [OPTIONS]
+```
+
+### Options
+
+<ParamField path="--path" type="path" default="runs/">
+  Root runs directory
+</ParamField>
+
+<ParamField path="--project" type="string">
+  Project name
+</ParamField>
+
+<ParamField path="--run" type="string" required>
+  Run ID
+</ParamField>
+
+### System Metric Detection
+
+Metrics are considered system metrics if they contain:
+- `sys/` prefix
+- `gpu`, `vram`, `cpu`, `memory`, `/mem`, `disk`, or `net` keywords
+
+### Output
+
+**Text format:**
+```
+system metrics in runs/run-123
+- sys/gpu_utilization
+- sys/gpu_memory
+- sys/cpu_percent
+- sys/memory_used
+```
+
+**JSON format:**
+```json
+{
+  "command": "list.system-metrics",
+  "data": {
+    "run": "runs/run-123",
+    "system_only": true,
+    "count": 4,
+    "metrics": [
+      "sys/gpu_utilization",
+      "sys/gpu_memory",
+      "sys/cpu_percent",
+      "sys/memory_used"
+    ]
+  }
+}
+```
+
+### Examples
+
+```bash
+# List system metrics
+og list system-metrics --run run-123
+
+# With project
+og list system-metrics --project image-classification --run run-001
+
+# JSON output
+og list system-metrics --run run-123 --json
+```
+
+---
+
+## Exit Codes
+
+- `0` - Success
+- `1` - Run not found or read error
+
+## Notes
+
+- Runs are sorted by last update time (most recent first)
+- Status is determined by file modification time:
+  - `running`: updated within last 120 seconds
+  - `inactive`: updated more than 120 seconds ago
+  - `unknown`: no modification time available
+- Tag and config filters are case-insensitive substring matches
+- All filters must match (AND logic, not OR)
+
+## Related Commands
+
+- [`og run`](/cli/run) - Start a new training run
+- [`og get run`](/cli/get#get-run) - Get detailed run information
+- [`og get metric`](/cli/get#get-metric) - Get metric time series

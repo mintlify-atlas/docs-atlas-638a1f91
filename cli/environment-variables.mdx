@@ -1,0 +1,333 @@
+---
+title: Environment variables
+description: Configure OpenGraphs behavior with environment variables
+---
+
+OpenGraphs reads several environment variables for configuration. These settings persist across runs and can be overridden by command-line flags.
+
+## Core variables
+
+### OGD_SOCKET
+
+Path to the Unix socket for daemon communication.
+
+```bash
+export OGD_SOCKET=/tmp/opengraphs-ogd.sock
+```
+
+**Default:** `/tmp/opengraphs-ogd.sock`
+
+**Used by:**
+- `ogtui` (TUI client)
+- Python agent daemon
+- Client libraries
+
+**Related flag:** `--socket`
+
+### OG_RUNTIME
+
+Default runtime backend for training execution.
+
+```bash
+export OG_RUNTIME=local
+```
+
+**Values:** `local`, `modal`
+
+**Default:** `local`
+
+**Related flag:** `--runtime`
+
+### OG_GRAPH_LABELS
+
+Default metric display labels in JSON format.
+
+```bash
+export OG_GRAPH_LABELS='{"train/loss":"Loss","train/accuracy":"Accuracy"}'
+```
+
+**Format:** JSON object mapping metric names to display labels
+
+**Related flag:** `--graph-labels`
+
+## Agent variables
+
+### OPENAI_API_KEY
+
+API key for OpenAI models used by the agent.
+
+```bash
+export OPENAI_API_KEY=sk-...
+```
+
+**Required for:** Agent chat and autonomous diagnostics
+
+**Source:** OpenAI dashboard
+
+### OG_AGENT_MODEL
+
+Override the default agent model.
+
+```bash
+export OG_AGENT_MODEL=openai/gpt-4
+```
+
+**Default:** `openai/gpt-3.5-turbo` (inferred from source)
+
+**Format:** `provider/model-name`
+
+### OG_AGENT_API_BASE
+
+Custom API endpoint for agent LLM calls.
+
+```bash
+export OG_AGENT_API_BASE=https://api.openai.com/v1
+```
+
+**Use case:** OpenAI-compatible endpoints (Azure, local models)
+
+### OG_AGENT_MODEL_TYPE
+
+Model type for DSPy configuration.
+
+```bash
+export OG_AGENT_MODEL_TYPE=chat
+```
+
+**Values:** `chat`, `completion`, `responses`
+
+**Default:** `chat`
+
+### OG_AGENT_REASONING_EFFORT
+
+Reasoning effort level for supported models.
+
+```bash
+export OG_AGENT_REASONING_EFFORT=medium
+```
+
+**Values:** `low`, `medium`, `high`
+
+**Note:** Only supported by certain models (e.g., o1)
+
+## Training defaults
+
+### OG_RUN_DIR
+
+Default directory for training run outputs.
+
+```bash
+export OG_RUN_DIR=runs/experiment
+```
+
+**Related flag:** `--path`
+
+### OG_TRAINING_FILE
+
+Default training script path.
+
+```bash
+export OG_TRAINING_FILE=train.py
+```
+
+**Related flag:** `--training-file`
+
+### OG_TRAINING_CMD
+
+Default command to execute for training.
+
+```bash
+export OG_TRAINING_CMD="python train.py --epochs 100"
+```
+
+**Related flag:** `--training-cmd`
+
+## TensorBoard variables
+
+### TB_LOG_DIR
+
+Directory where TensorBoard event files are written.
+
+```bash
+export TB_LOG_DIR=runs/
+```
+
+**Default:** `runs/`
+
+**Used by:** Training scripts, TensorBoard, OpenGraphs metric reader
+
+### TB_LOG_EVERY
+
+Interval (in steps) for logging cheap metrics.
+
+```bash
+export TB_LOG_EVERY=10
+```
+
+**Default:** `10`
+
+**Example metrics:** Loss, accuracy, learning rate
+
+### TB_LOG_HEAVY_EVERY
+
+Interval (in steps) for logging expensive metrics.
+
+```bash
+export TB_LOG_HEAVY_EVERY=50
+```
+
+**Default:** `50`
+
+**Example metrics:** Gradient norms, weight histograms, validation metrics
+
+### ENABLE_TB
+
+Toggle TensorBoard logging on/off.
+
+```bash
+export ENABLE_TB=1  # Enable
+export ENABLE_TB=0  # Disable
+```
+
+**Default:** `0` (disabled)
+
+**Used by:** `demo_train.py` and user training scripts
+
+## Demo script variables
+
+### DEMO_LR
+
+Learning rate for the demo training script.
+
+```bash
+export DEMO_LR=0.001
+```
+
+**Default:** `0.001`
+
+**File:** `demo_train.py`
+
+### DEMO_BATCH
+
+Batch size for the demo training script.
+
+```bash
+export DEMO_BATCH=32
+```
+
+**Default:** `32`
+
+**File:** `demo_train.py`
+
+## Configuration file
+
+For persistent configuration, create a `.env` file:
+
+```bash title=".env"
+OPENAI_API_KEY=sk-...
+OG_AGENT_MODEL=openai/gpt-4
+OGD_SOCKET=/tmp/opengraphs-ogd.sock
+OG_RUNTIME=local
+OG_GRAPH_LABELS='{"train/loss":"Loss"}'
+TB_LOG_DIR=runs/
+ENABLE_TB=1
+```
+
+Load with:
+```bash
+source .env
+og run train.py
+```
+
+Or use a tool like `direnv` for automatic loading.
+
+## Example configurations
+
+### Local development
+
+```bash
+export OG_RUNTIME=local
+export TB_LOG_DIR=runs/dev
+export TB_LOG_EVERY=5
+export ENABLE_TB=1
+export OG_GRAPH_LABELS='{"train/loss":"Loss"}'
+```
+
+### Remote SSH session
+
+```bash
+export OGD_SOCKET=/tmp/opengraphs-ogd-$USER.sock
+export OG_RUNTIME=local
+export TB_LOG_DIR=/data/runs
+```
+
+### Production with AI agent
+
+```bash
+export OPENAI_API_KEY=sk-...
+export OG_AGENT_MODEL=openai/gpt-4
+export OG_RUNTIME=modal
+export TB_LOG_DIR=/modal-volumes/runs
+export TB_LOG_HEAVY_EVERY=100
+```
+
+## Precedence
+
+Configuration is applied in this order (last wins):
+
+1. Defaults (hardcoded in source)
+2. Environment variables
+3. Command-line flags
+
+Example:
+```bash
+export OG_RUNTIME=local
+og run train.py --runtime modal  # Uses modal (flag overrides env)
+```
+
+## Troubleshooting
+
+### Variable not taking effect
+
+**Check spelling:**
+```bash
+env | grep OG_
+```
+
+**Verify export:**
+```bash
+# Wrong (shell variable only)
+OG_RUNTIME=local
+
+# Correct (exported to child processes)
+export OG_RUNTIME=local
+```
+
+### JSON parsing errors
+
+**Escape quotes properly:**
+```bash
+# Wrong (shell interprets quotes)
+export OG_GRAPH_LABELS={"loss":"Loss"}
+
+# Correct (single quotes preserve JSON)
+export OG_GRAPH_LABELS='{"loss":"Loss"}'
+```
+
+## Source reference
+
+Environment variables are defined in:
+- `crates/ogtui/src/main.rs` (CLI args with `env = "VAR"`)
+- `.env.example` (documentation and defaults)
+- `demo_train.py` (training script variables)
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Runtime backends" icon="server" href="/cli/runtime-backends">
+    Configure where training runs execute
+  </Card>
+  <Card title="Graph configuration" icon="chart-line" href="/cli/graph-config">
+    Customize metric display and labels
+  </Card>
+</CardGroup>

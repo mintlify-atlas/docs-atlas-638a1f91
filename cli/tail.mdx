@@ -1,0 +1,170 @@
+---
+title: 'og tail'
+description: 'View the last N lines/events from logs or TensorFlow event files'
+---
+
+## Overview
+
+The `og tail` command displays the last N lines or events from log files, TensorFlow event files (.tfevents), or run directories. It's useful for quickly inspecting recent training activity.
+
+## Syntax
+
+```bash
+og tail <target> [OPTIONS]
+```
+
+## Arguments
+
+<ParamField path="target" type="string" required>
+  Run ID or direct path to log/tfevents file
+  
+  **Types:**
+  - Run ID (resolved from `--path`)
+  - Direct path to .tfevents file
+  - Direct path to run directory
+  - Direct path to text log file
+</ParamField>
+
+## Options
+
+<ParamField path="--lines" type="integer" default="120">
+  Number of lines/events to print from the tail
+  
+  **Example:**
+  ```bash
+  og tail run-123 --lines 50
+  ```
+</ParamField>
+
+<ParamField path="--path" type="path" default="runs/">
+  Root runs directory for run-id resolution
+  
+  **Example:**
+  ```bash
+  og tail run-123 --path experiments/
+  ```
+</ParamField>
+
+## Output Formats
+
+The command automatically detects the target type and formats output accordingly:
+
+### Run Directory
+
+**Format:** Parsed events log with step, tag, and value
+
+```
+step      0 │ train/loss                    │ 2.456789
+step      1 │ train/loss                    │ 2.412345
+step      2 │ train/loss                    │ 2.389012
+```
+
+### TensorFlow Events File
+
+**Format:** Individual events from .tfevents file
+
+```
+step      0 │ train/loss                    │ 2.456789
+step      0 │ train/accuracy                │ 0.123456
+step      1 │ train/loss                    │ 2.412345
+```
+
+### Text Log File
+
+**Format:** Raw text lines
+
+```
+[info] Training started
+[info] Epoch 1/10
+[info] Loss: 2.456
+```
+
+## Examples
+
+### Tail by Run ID
+
+```bash
+# View last 120 events (default)
+og tail run-123
+
+# View last 50 events
+og tail run-123 --lines 50
+```
+
+### Tail by Direct Path
+
+```bash
+# Tail a specific run directory
+og tail /path/to/runs/run-123
+
+# Tail a specific .tfevents file
+og tail /path/to/events.out.tfevents.1234567890
+
+# Tail a text log file
+og tail /path/to/training.log
+```
+
+### With Custom Run Directory
+
+```bash
+# Resolve run-123 from experiments/ directory
+og tail run-123 --path experiments/
+```
+
+### View Recent Activity
+
+```bash
+# Quick check of last 20 events
+og tail run-123 --lines 20
+
+# View more history
+og tail run-123 --lines 500
+```
+
+## JSON Output
+
+Add `--json` flag for machine-readable output:
+
+```bash
+og tail run-123 --json
+```
+
+**Output:**
+```json
+{
+  "command": "tail",
+  "data": {
+    "target": "runs/run-123",
+    "kind": "run_events",
+    "line_count": 120,
+    "lines": [
+      "step      0 │ train/loss                    │ 2.456789",
+      "step      1 │ train/loss                    │ 2.412345"
+    ]
+  },
+  "text": "step      0 │ train/loss                    │ 2.456789\nstep      1 │ train/loss                    │ 2.412345"
+}
+```
+
+**Kind values:**
+- `run_events` - Run directory with multiple .tfevents files
+- `tfevents` - Single .tfevents file
+- `text` - Plain text log file
+
+## Exit Codes
+
+- `0` - Success
+- `1` - Target not found or error reading file
+
+## Notes
+
+- The command automatically parses .tfevents files and formats them as readable logs
+- For run directories, it aggregates all .tfevents files and sorts by step
+- Line numbers are preserved from the source file for text logs
+- The `--lines` parameter applies to the tail, not the total file length
+
+## Related Commands
+
+- [`og run`](/cli/run) - Start a new training run
+- [`og list runs`](/cli/list#list-runs) - List all runs
+- [`og get run`](/cli/get#get-run) - Get detailed run information

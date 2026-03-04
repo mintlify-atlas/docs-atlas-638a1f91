@@ -1,0 +1,217 @@
+---
+title: NPX runner
+description: Run OpenGraphs instantly with npx without manual installation
+---
+
+The npx runner allows you to use OpenGraphs without installing it globally. This is ideal for trying the tool or running it in CI/CD environments.
+
+## Quick start
+
+Run OpenGraphs instantly with npx:
+
+```bash
+npx -y opengraphs-cli@latest
+```
+
+The `-y` flag automatically confirms the package installation without prompting.
+
+## Running commands
+
+You can pass any OpenGraphs command directly to npx:
+
+<CodeGroup>
+
+```bash Run training script
+npx -y opengraphs-cli@latest run demo_train.py --auto autonomous
+```
+
+```bash Show help
+npx -y opengraphs-cli@latest --help
+```
+
+```bash List runs
+npx -y opengraphs-cli@latest list runs --project myproject
+```
+
+</CodeGroup>
+
+## Version management
+
+### Latest version
+
+Always use the latest published version:
+
+```bash
+npx -y opengraphs-cli@latest
+```
+
+### Pinned version
+
+Lock to a specific version for reproducibility:
+
+```bash
+npx -y opengraphs-cli@0.1.6
+```
+
+<Tip>
+Pinning versions is recommended for CI/CD pipelines to ensure consistent behavior across builds.
+</Tip>
+
+### Version range
+
+Use npm semver syntax for version ranges:
+
+```bash
+# Any 0.1.x version
+npx -y opengraphs-cli@^0.1.0
+
+# Exact version
+npx -y opengraphs-cli@0.1.7
+```
+
+## Package details
+
+The `opengraphs-cli` npm package provides three executable aliases:
+- `opengraphs-cli`: Full package name
+- `opengraphs`: Short name
+- `og`: Shortest alias
+
+All three work identically:
+
+```bash
+npx -y opengraphs-cli@latest --help
+npx -y opengraphs@latest --help
+npx -y og@latest --help
+```
+
+## How npx works
+
+<Steps>
+
+<Step title="Check local cache">
+npx checks if the package is already cached locally. If found, it uses the cached version.
+</Step>
+
+<Step title="Download if needed">
+If not cached or if `@latest` is specified, npx downloads the package from npm registry.
+</Step>
+
+<Step title="Extract binaries">
+The package contains pre-built binaries for your platform. npx extracts the appropriate binary.
+</Step>
+
+<Step title="Execute command">
+Runs the binary with any arguments you provided.
+</Step>
+
+</Steps>
+
+## Cache behavior
+
+npx caches packages in your npm cache directory. To force a fresh download:
+
+```bash
+# Clear npm cache
+npm cache clean --force
+
+# Then run npx again
+npx -y opengraphs-cli@latest
+```
+
+<Note>
+Unlike global npm installs, npx doesn't require explicit uninstallation. Simply stop using the command and cached files will be cleaned up during normal npm cache maintenance.
+</Note>
+
+## Use cases
+
+### One-time usage
+
+Try OpenGraphs without committing to a full installation:
+
+```bash
+npx -y opengraphs-cli@latest run demo_train.py
+```
+
+### CI/CD pipelines
+
+Use in continuous integration without polluting the global environment:
+
+```yaml .github/workflows/train.yml
+- name: Run training
+  run: npx -y opengraphs-cli@0.1.6 run train.py --runtime local
+```
+
+### Quick testing
+
+Test different versions without switching global installs:
+
+```bash
+# Test with v0.1.6
+npx -y opengraphs-cli@0.1.6 run demo_train.py
+
+# Test with v0.1.7
+npx -y opengraphs-cli@0.1.7 run demo_train.py
+```
+
+### Shared environments
+
+On shared servers where you can't install global packages:
+
+```bash
+npx -y opengraphs-cli@latest run train.py
+```
+
+## Requirements
+
+- Node.js >= 18
+- npm or yarn
+
+Verify your Node.js version:
+
+```bash
+node --version
+```
+
+If you need to upgrade Node.js, use [nvm](https://github.com/nvm-sh/nvm) or download from [nodejs.org](https://nodejs.org/).
+
+## Comparison with other methods
+
+| Method | Installation | Updates | Use case |
+|--------|--------------|---------|----------|
+| npx | Automatic | Run `@latest` | Quick testing, CI/CD |
+| npm global | Manual | `npm install -g` | Daily use |
+| curl installer | Manual | Re-run script | Production servers |
+
+## Troubleshooting
+
+### Package not found
+
+If npx can't find the package, ensure you're using the correct package name:
+
+```bash
+# Correct
+npx -y opengraphs-cli@latest
+
+# Incorrect (missing -cli suffix)
+npx -y opengraphs@latest
+```
+
+### Version not found
+
+Check [npm registry](https://www.npmjs.com/package/opengraphs-cli) for available versions:
+
+```bash
+npm view opengraphs-cli versions
+```
+
+### Binary not compatible
+
+The package includes binaries for multiple platforms. If you get a "binary not compatible" error, ensure your platform is supported:
+- macOS (Intel/Apple Silicon)
+- Linux (x86_64/ARM64)
+
+Windows is not currently supported.
+
+### Slow first run
+
+The first time you run npx with a package, it needs to download and cache it. Subsequent runs will be faster. If it's consistently slow, check your network connection or try using a global npm install instead.

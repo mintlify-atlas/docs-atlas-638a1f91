@@ -1,0 +1,300 @@
+---
+title: 'System Architecture'
+description: 'Technical overview of OpenGraphs components and data flow'
+---
+
+## Overview
+
+OpenGraphs is built as a modular system with three main components that work together to provide real-time ML experiment tracking and AI-assisted debugging:
+
+1. **ogtui** - Terminal UI client (Rust)
+2. **ogd** - Daemon service (Rust, placeholder)
+3. **Agent** - AI assistant daemon (Python)
+
+## Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                        ogtui                            │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌────────┐│
+│  │ Graphs   │  │  Logs    │  │  Chat    │  │ Procs  ││
+│  │   Tab    │  │   Tab    │  │   Tab    │  │  Tab   ││
+│  └──────────┘  └──────────┘  └──────────┘  └────────┘│
+│         │              │              │              │ │
+│         └──────────────┴──────────────┴──────────────┘ │
+│                         │                               │
+│                    TUI Engine                           │
+│              (ratatui + crossterm)                      │
+└───────────────────────────┬─────────────────────────────┘
+                            │
+                            │ Unix Socket
+                            │ /tmp/opengraphs-ogd.sock
+                            │
+┌───────────────────────────▼─────────────────────────────┐
+│               Agent Daemon (Python)                     │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │  Socket Server (og_agent_chat.server)           │   │
+│  ├─────────────────────────────────────────────────┤   │
+│  │  • Chat history management                      │   │
+│  │  • Action plan generation                       │   │
+│  │  • Code refactoring                             │   │
+│  │  • Training process control                     │   │
+│  │  • Run state monitoring                         │   │
+│  └─────────────────────────────────────────────────┘   │
+│         │                                   │           │
+│         │                                   │           │
+│    LLM API                           Training Process   │
+│   (OpenAI)                            (subprocess)      │
+└─────────────────────────────────────────────────────────┘
+                            │
+                            │ TensorBoard Events
+                            │
+┌───────────────────────────▼─────────────────────────────┐
+│              File System (runs/)                        │
+│  • .tfevents files (metrics)                            │
+│  • Checkpoint snapshots                                 │
+│  • Run metadata                                         │
+└─────────────────────────────────────────────────────────┘
+```
+
+## Component Details
+
+### ogtui (Terminal UI)
+
+**Location:** `crates/ogtui/`
+
+**Language:** Rust
+
+**Purpose:** The main user interface that provides real-time visualization of training metrics, logs, and AI chat.
+
+**Key Modules:**
+
+- `main.rs` - Entry point, CLI argument parsing, TUI initialization
+- `app.rs` - Application state management
+- `ui.rs` - Rendering logic for all tabs
+- `socket_client.rs` - Unix socket communication with agent daemon
+- `tfevents.rs` - TensorBoard event file parsing
+
+**Technologies:**
+- [ratatui](https://ratatui.rs/) - Terminal UI framework
+- [crossterm](https://github.com/crossterm-rs/crossterm) - Terminal manipulation
+- [clap](https://github.com/clap-rs/clap) - CLI argument parsing
+- [serde_json](https://github.com/serde-rs/json) - JSON serialization
+
+**Key Features:**
+- Four-tab interface (Graphs, Logs, Chat, Procs)
+- Real-time metric updates via file polling
+- Process monitoring (htop-style)
+- Interactive chat with AI agent
+- Mouse and keyboard navigation
+- Copy mode for text selection (F6)
+
+### ogd (Daemon Service)
+
+**Location:** `crates/ogd/`
+
+**Language:** Rust
+
+**Purpose:** HTTP service daemon (currently placeholder, future expansion planned)
+
+**Status:** v0.1.7 includes a placeholder implementation that logs startup but doesn't yet serve requests. The Unix socket protocol is currently handled by the Python agent daemon.
+
+**Planned Features:**
+- HTTP API for remote access
+- WebSocket support for real-time updates
+- Multi-user session management
+- Authentication and authorization
+
+**Current Implementation:**
+```rust
+pub const DEFAULT_BIND_ADDR: &str = "127.0.0.1:8787";
+
+pub async fn start(bind_addr: &str) -> Result<()> {
+    tracing::info!(%bind_addr, "ogd placeholder started");
+    println!("ogd listening on {bind_addr} (placeholder)");
+    Ok(())
+}
+```
+
+### Agent Daemon (Python)
+
+**Location:** `python/agent-chat/`
+
+**Language:** Python
+
+**Purpose:** AI-powered assistant that monitors training runs and provides automated debugging suggestions.
+
+**Key Responsibilities:**
+1. **Unix Socket Server** - Handles JSON-RPC style communication from ogtui
+2. **Training Process Management** - Spawns and monitors training scripts
+3. **LLM Integration** - Communicates with OpenAI API for code analysis
+4. **Code Refactoring** - Applies suggested fixes to codebase
+5. **Alert System** - Monitors metrics for anomalies
+
+**Socket Protocol Commands:**
+- `ping` - Health check
+- `get_chat_history` - Retrieve conversation history
+- `chat_message` - Send user message, get AI response
+- `apply_refactor` - Execute approved code changes
+- `set_training_file` - Update target training script
+- `set_auto_mode` - Toggle autonomous refactoring
+- `set_runtime` - Switch runtime backend (local/modal)
+- `start_training` - Launch training process
+- `get_run_state` - Fetch current metrics and logs
+
+## Data Flow
+
+### Training Metrics Flow
+
+1. Training script writes metrics using TensorBoard's `SummaryWriter`
+2. Metrics are written to `.tfevents` files in `runs/` directory
+3. ogtui polls the event files periodically (default: 1000ms)
+4. `tfevents.rs` parses the protobuf-encoded events
+5. Metrics are aggregated and rendered as line graphs
+6. UI updates in real-time as new events are written
+
+### Chat Interaction Flow
+
+1. User types message in Chat tab and presses Enter
+2. ogtui sends `chat_message` command via Unix socket
+3. Agent daemon:
+   - Appends user message to chat history
+   - Analyzes current run state (metrics, logs, code)
+   - Calls LLM API with context
+   - Generates `ActionPlanResponse` with diagnosis and suggested fix
+4. Response is sent back to ogtui with updated chat history
+5. If auto mode is disabled, user can approve changes with Ctrl+A
+6. If auto mode is enabled, changes are applied immediately
+
+### Process Monitoring Flow
+
+1. ogtui spawns background thread for process sampling
+2. Thread runs `ps` command at regular intervals (default: 1000ms)
+3. Process snapshots are parsed and sent to UI thread
+4. Procs tab displays top N processes (default: 300)
+5. Sorting by CPU%, MEM%, or elapsed time
+6. Training process is highlighted in the list
+
+## Communication Protocols
+
+### Unix Socket Protocol
+
+**Socket Path:** `/tmp/opengraphs-ogd.sock` (configurable via `OGD_SOCKET` env var)
+
+**Message Format:** JSON lines (newline-delimited JSON)
+
+**Request Structure:**
+```json
+{
+  "type": "<command>",
+  "<param1>": "<value1>",
+  "<param2>": "<value2>"
+}
+```
+
+**Response Structure:**
+```json
+{
+  "ok": true,
+  "<result_key>": "<result_value>"
+}
+```
+
+**Error Structure:**
+```json
+{
+  "ok": false,
+  "error": "<error_message>"
+}
+```
+
+**Timeouts:**
+- Read timeout: 30 seconds
+- Write timeout: 5 seconds
+
+See `/home/daytona/workspace/source/crates/ogtui/src/socket_client.rs` for full implementation.
+
+### TensorBoard Event Format
+
+OpenGraphs reads standard TensorBoard `.tfevents` files using protobuf parsing. Files are named:
+
+```
+events.out.tfevents.<timestamp>.<hostname>
+```
+
+Each event contains:
+- `step` - Training step number
+- `tag` - Metric name (e.g., "train/loss", "sys/gpu_util")
+- `value` - Scalar value
+- `wall_time` - Unix timestamp
+
+## Configuration
+
+### Environment Variables
+
+| Variable | Purpose | Default |
+|----------|---------|--------|
+| `OGD_SOCKET` | Unix socket path | `/tmp/opengraphs-ogd.sock` |
+| `OPENAI_API_KEY` | API key for LLM | Required for agent |
+| `OG_GRAPH_LABELS` | Metric display labels | `{}` |
+| `OG_PYTHON_BIN` | Python interpreter path | Auto-detected |
+| `PYTHONPATH` | Python module search path | Auto-configured |
+| `TB_LOG_DIR` | TensorBoard log directory | `runs/` |
+| `TB_LOG_EVERY` | Cheap metrics interval | 10 |
+| `TB_LOG_HEAVY_EVERY` | Expensive metrics interval | 50 |
+
+### CLI Arguments
+
+Key ogtui arguments:
+
+- `--path <dir>` - Event files directory
+- `--training-file <file>` - Enable agent daemon
+- `--training-cmd <cmd>` - Launch command
+- `--auto` - Enable autonomous refactoring
+- `--runtime <local|modal>` - Runtime backend
+- `--socket <path>` - Override socket path
+- `--refresh-ms <ms>` - Live reload interval
+- `--graph <json>` - Metric filter
+- `--graph-labels <json>` - Display labels
+
+See [CLI Reference](/cli/commands) for full list.
+
+## Threading Model
+
+### ogtui Threads
+
+1. **Main Thread** - Event loop, rendering, user input
+2. **Process Sampler Thread** - Polls `ps` for process list
+3. **File Reload Thread** - Polls `.tfevents` files for updates
+4. **Socket Client Threads** - Async calls to agent daemon
+
+**Thread Communication:** `std::sync::mpsc` channels
+
+### Agent Daemon Threading
+
+Single-threaded async Python event loop with:
+- Unix socket server
+- Subprocess management for training process
+- HTTP client for LLM API calls
+
+## Performance Considerations
+
+- **Event File Parsing:** Protobuf deserialization can be slow for large files. ogtui caches parsed events and only reads new data on each refresh.
+- **Process Sampling:** Running `ps` frequently can impact CPU. Adjust `--procs-interval-ms` if needed.
+- **Socket Timeouts:** Long-running LLM API calls may timeout. Agent daemon handles retries internally.
+- **Memory Usage:** Process history is capped at `--procs-limit` (default: 300) to prevent unbounded growth.
+
+## Security
+
+- **Unix Socket Permissions:** Socket files inherit user permissions (typically `0600`)
+- **No Authentication:** Socket access implies full control over training runs
+- **Code Execution:** Agent daemon can modify codebase and restart processes
+- **API Keys:** LLM API keys are passed via environment variables
+
+**Recommendation:** Only run OpenGraphs in trusted environments with secure file system permissions.
+
+## Next Steps
+
+- [Daemon Documentation](/advanced/daemon) - Deep dive into ogd and agent daemon
+- [Building from Source](/advanced/building-from-source) - Development setup
+- [Contributing Guide](/advanced/contributing) - How to contribute

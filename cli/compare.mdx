@@ -1,0 +1,249 @@
+---
+title: 'og compare'
+description: 'Compare a metric across multiple training runs'
+---
+
+## Overview
+
+The `og compare` command compares a specific metric across multiple training runs, showing first/last values, deltas, and min/max statistics for each run.
+
+## Syntax
+
+```bash
+og compare [OPTIONS]
+```
+
+## Options
+
+<ParamField path="--runs" type="string" required>
+  Comma-separated list of run IDs or paths
+  
+  **Example:**
+  ```bash
+  og compare --runs run-123,run-124,run-125 --metric train/loss
+  ```
+</ParamField>
+
+<ParamField path="--metric" type="string" required>
+  Metric name to compare (e.g., `train/loss`, `val/accuracy`)
+  
+  **Example:**
+  ```bash
+  og compare --runs run-123,run-124 --metric train/accuracy
+  ```
+</ParamField>
+
+<ParamField path="--path" type="path" default="runs/">
+  Root runs directory for run-id resolution
+  
+  **Example:**
+  ```bash
+  og compare --runs run-123,run-124 --metric train/loss --path experiments/
+  ```
+</ParamField>
+
+<ParamField path="--project" type="string">
+  Project name for run resolution
+  
+  **Example:**
+  ```bash
+  og compare --runs run-001,run-002 --metric train/loss --project image-classification
+  ```
+</ParamField>
+
+## Output
+
+### Text Format (Default)
+
+```
+compare metric 'train/loss'
+- runs/run-123 | first=2.456789 last=0.123456 delta=-2.333333 min=0.089123 max=2.456789
+- runs/run-124 | first=2.512345 last=0.145678 delta=-2.366667 min=0.095678 max=2.512345
+- runs/run-125 | first=2.398765 last=0.112345 delta=-2.286420 min=0.078912 max=2.398765
+```
+
+**If metric not found in a run:**
+```
+compare metric 'train/loss'
+- runs/run-123 | first=2.456789 last=0.123456 delta=-2.333333 min=0.089123 max=2.456789
+- runs/run-124: metric 'train/loss' not found
+```
+
+### JSON Format
+
+Add `--json` flag for structured output:
+
+```bash
+og compare --runs run-123,run-124,run-125 --metric train/loss --json
+```
+
+**Output:**
+```json
+{
+  "command": "compare",
+  "data": {
+    "metric": "train/loss",
+    "comparisons": [
+      {
+        "run": "runs/run-123",
+        "found": true,
+        "count": 1000,
+        "first": 2.456789,
+        "last": 0.123456,
+        "delta": -2.333333,
+        "min": 0.089123,
+        "max": 2.456789
+      },
+      {
+        "run": "runs/run-124",
+        "found": true,
+        "count": 1000,
+        "first": 2.512345,
+        "last": 0.145678,
+        "delta": -2.366667,
+        "min": 0.095678,
+        "max": 2.512345
+      },
+      {
+        "run": "runs/run-125",
+        "found": false
+      }
+    ]
+  }
+}
+```
+
+## Statistics Explained
+
+<ParamField path="first" type="float">
+  Value at the first step in the time series
+</ParamField>
+
+<ParamField path="last" type="float">
+  Value at the final step in the time series
+</ParamField>
+
+<ParamField path="delta" type="float">
+  Change from first to last value (last - first)
+  
+  - Negative delta indicates improvement for loss metrics
+  - Positive delta indicates improvement for accuracy/reward metrics
+</ParamField>
+
+<ParamField path="min" type="float">
+  Minimum value across all steps
+</ParamField>
+
+<ParamField path="max" type="float">
+  Maximum value across all steps
+</ParamField>
+
+<ParamField path="count" type="integer">
+  Total number of data points in the time series
+</ParamField>
+
+## Examples
+
+### Compare Loss Across Runs
+
+```bash
+# Compare training loss for 3 runs
+og compare --runs run-123,run-124,run-125 --metric train/loss
+```
+
+### Compare Accuracy Across Runs
+
+```bash
+# Compare validation accuracy
+og compare --runs run-123,run-124 --metric val/accuracy
+```
+
+### With Project
+
+```bash
+# Compare runs within a project
+og compare \
+  --runs run-001,run-002,run-003 \
+  --metric train/loss \
+  --project image-classification
+```
+
+### With Custom Path
+
+```bash
+# Compare runs in custom directory
+og compare \
+  --runs exp-001,exp-002 \
+  --metric train/reward \
+  --path experiments/
+```
+
+### Using Direct Paths
+
+```bash
+# Use full paths instead of run IDs
+og compare \
+  --runs /path/to/run1,/path/to/run2 \
+  --metric train/loss
+```
+
+### JSON Output for Scripting
+
+```bash
+# Get JSON for parsing in scripts
+og compare \
+  --runs run-123,run-124,run-125 \
+  --metric train/loss \
+  --json | jq '.data.comparisons[] | select(.found) | .delta'
+```
+
+## Use Cases
+
+### Hyperparameter Comparison
+
+```bash
+# Compare different learning rates
+og compare --runs lr-0.001,lr-0.0001,lr-0.00001 --metric train/loss
+```
+
+### Architecture Comparison
+
+```bash
+# Compare model architectures
+og compare --runs resnet50,resnet101,vit-base --metric val/accuracy
+```
+
+### Optimization Comparison
+
+```bash
+# Compare optimizers
+og compare --runs adam,sgd,adamw --metric train/loss
+```
+
+### Finding Best Run
+
+```bash
+# Compare all recent runs and identify best
+og compare --runs $(og list runs --json | jq -r '.data.runs[].id' | head -5 | tr '\n' ',') --metric val/accuracy
+```
+
+## Exit Codes
+
+- `0` - Success (even if some metrics not found)
+- `1` - Error (invalid arguments or all runs failed)
+
+## Notes
+
+- At least one run must be specified in `--runs`
+- Runs are processed in the order specified
+- If a metric is not found in a run, the comparison continues with remaining runs
+- The `delta` calculation is always `last - first`
+- For loss metrics, negative delta indicates improvement
+- For accuracy/reward metrics, positive delta indicates improvement
+- Metric names are case-sensitive
+
+## Related Commands
+
+- [`og get metric`](/cli/get#get-metric) - Get detailed metric time series
+- [`og list runs`](/cli/list#list-runs) - List available runs
+- [`og get run`](/cli/get#get-run) - Get run summary

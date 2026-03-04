@@ -1,0 +1,171 @@
+---
+title: Tracking Experiments
+description: Learn how to track ML experiments, view metrics, and organize your training runs with OpenGraphs
+---
+
+## Overview
+
+OpenGraphs provides local-first experiment tracking for ML training runs. The TUI automatically discovers and displays metrics from TensorBoard event files, giving you real-time visibility into your experiments.
+
+## How Metrics Are Tracked
+
+OpenGraphs reads metrics from TensorBoard event files (`.tfevents`) in your run directory. The system automatically:
+
+- Discovers all scalar metrics logged via TensorBoard
+- Tracks the latest step and total events processed
+- Updates metrics in real-time as new events are written
+- Maintains metric history for trend analysis
+
+### Viewing Metrics in the TUI
+
+Metrics appear in the **Graphs** tab, displayed as a grid of cards. Each card shows:
+
+- Metric name (or custom label)
+- Line chart with Braille markers
+- Latest value in the bottom-right corner
+- Automatic y-axis scaling with margin
+
+**Navigation shortcuts:**
+- `h` / `←` - Previous metric
+- `l` / `→` - Next metric  
+- `j` / `k` - Scroll metric grid down/up
+- `Enter` or click - Enlarge metric to fullscreen
+- `Esc` - Exit fullscreen view
+
+The selected metric is highlighted with a green border.
+
+## Organizing Runs
+
+When launching a training run with `og run`, OpenGraphs creates a timestamped run directory:
+
+```bash
+og run demo_train.py
+# Creates: runs/run-<timestamp>/
+```
+
+This prevents logs and metrics from different runs mixing together. You can specify a custom directory:
+
+```bash
+og run demo_train.py --path my-experiments/
+```
+
+### Run Metadata
+
+Each run tracks:
+
+- **Total events**: Number of TensorBoard events parsed
+- **Max step**: Highest training step observed
+- **Metric tags**: All unique metric names discovered
+- **Path**: Location of the event files
+
+View this metadata in the **Stats** panel on the right side of the Graphs tab.
+
+## Custom Metric Labels
+
+You can assign human-readable labels to metrics for clearer visualization:
+
+```bash
+# JSON format
+og run demo_train.py --graph-labels '{"train/loss":"Loss","train/accuracy":"Accuracy"}'
+
+# CSV format
+og run demo_train.py --graph-labels "train/loss=Loss,train/accuracy=Accuracy"
+
+# Environment variable (persists across runs)
+export OG_GRAPH_LABELS='{"train/loss":"Loss","train/accuracy":"Accuracy"}'
+```
+
+Labeled metrics display the custom name in the TUI instead of the raw TensorBoard tag.
+
+## Step Progress Indicator
+
+The header bar shows a horizontal progress meter:
+
+```
+3 tags │ 150 events │ step 1000/5000 ████████████░░░░░░░░░░░░
+```
+
+This tracks the current step of the selected metric against the maximum step observed across all metrics.
+
+## Fullscreen Metric View
+
+Press `Enter` on any metric to see detailed statistics:
+
+- **Latest value**: Most recent data point
+- **Min/Max**: Range of values observed
+- **Points**: Total number of data points
+- **Steps**: Step range (start to end)
+- **Larger chart**: Better visibility of trends
+
+The chart includes labeled x-axis (steps) and y-axis (values) with min/mid/max annotations.
+
+## Log Tab
+
+The **Logs** tab shows structured event data derived from TensorBoard files:
+
+- `[ERROR]` - Red, bold
+- `[SUCCESS]` or `[SUCESS]` - Green, bold  
+- `[IMPORTANT]` - Amber, bold
+- `[INFO]` - Ash gray
+- Lines starting with `--` - Border color (separators)
+
+**Navigation:**
+- `j` / `k` - Scroll down/up
+- Auto-follows new lines by default (scroll up to disable)
+
+## Comparing Runs
+
+Use the CLI to compare metrics across runs:
+
+```bash
+# List all runs in a project
+og list runs --project my-project
+
+# Compare reward metric across two runs
+og compare --runs run-123,run-456 --metric reward
+
+# Search for metrics containing "loss"
+og search metrics --query loss
+```
+
+All commands support `--json` output for programmatic access:
+
+```bash
+og list runs --project my-project --json
+```
+
+## Live Metrics
+
+OpenGraphs refreshes metrics automatically. The default refresh interval is optimized for performance, but you can adjust it:
+
+```bash
+# Refresh every 100ms (for rapid iteration)
+ogtui --path runs/ --refresh-ms 100
+
+# Refresh every 2 seconds (for slower training)
+ogtui --path runs/ --refresh-ms 2000
+```
+
+When the daemon is connected (via the Chat tab), metrics update in real-time from the running training process.
+
+## Metric Display Tips
+
+**Grid layout:**
+- The grid auto-calculates columns based on terminal width
+- Each card is 12 rows tall
+- Metrics are ordered alphabetically by tag name
+
+**Value formatting:**
+- Small values (`< 0.001`): Scientific notation (`1.23e-04`)
+- Large values (`>= 10000`): Scientific notation (`1.23e+05`)
+- Normal range: Fixed-point with 4 decimals (`0.1234`)
+
+**Empty states:**
+- "No scalar metrics found" - No event files or no scalar metrics logged
+- "--" - Metric exists but has no data points yet
+
+## Next Steps
+
+- Learn about [TUI navigation](/guides/tui-interface) for keyboard shortcuts
+- Set up the [AI agent](/guides/ai-agent) for automatic issue diagnosis
+- Run training [remotely over SSH](/guides/remote-training)

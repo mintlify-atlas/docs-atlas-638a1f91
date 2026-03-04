@@ -1,0 +1,588 @@
+---
+title: 'Daemon Documentation'
+description: 'ogd daemon and agent daemon architecture'
+---
+
+## Overview
+
+OpenGraphs uses two daemon processes:
+
+1. **ogd** (Rust) - HTTP service daemon (placeholder in v0.1.7)
+2. **Agent Daemon** (Python) - AI assistant and Unix socket server
+
+Currently, the Python agent daemon handles all daemon functionality including the Unix socket protocol that ogtui uses for communication.
+
+## ogd Daemon (Rust)
+
+### Status
+
+The `ogd` crate is a placeholder implementation as of v0.1.7. It logs startup but does not yet serve requests.
+
+### Implementation
+
+**File:** `crates/ogd/src/lib.rs`
+
+```rust
+use anyhow::Result;
+
+pub const DEFAULT_BIND_ADDR: &str = "127.0.0.1:8787";
+
+pub async fn start(bind_addr: &str) -> Result<()> {
+    tracing::info!(%bind_addr, "ogd placeholder started");
+    println!("ogd listening on {bind_addr} (placeholder)");
+    Ok(())
+}
+```
+
+**Entry Point:** `crates/ogd/src/main.rs`
+
+```rust
+#[tokio::main]
+async fn main() -> Result<()> {
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+        )
+        .init();
+
+    ogd::start(ogd::DEFAULT_BIND_ADDR).await
+}
+```
+
+### Build and Run
+
+```bash
+# Build ogd
+cargo build -p ogd
+
+# Run ogd
+cargo run -p ogd
+```
+
+Output:
+```
+ogd listening on 127.0.0.1:8787 (placeholder)
+```
+
+### Dependencies
+
+**Cargo.toml:**
+```toml
+[dependencies]
+anyhow = "1.0.101"
+axum = "0.8.8"
+bytes = "1.11.1"
+hyper = "1.8.1"
+hyper-util = "0.1.20"
+serde = "1.0.228"
+serde_json = "1.0.149"
+tokio = { version = "1.49.0", features = ["macros", "net", "rt-multi-thread", "signal"] }
+tower = "0.5.3"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
+trackio-rs = "0.1.0"
+```
+
+Axum, Hyper, and Tower are included for future HTTP server implementation.
+
+### Future Plans
+
+The ogd daemon will eventually provide:
+
+- **HTTP API** - RESTful endpoints for remote access
+- **WebSocket Support** - Real-time metric streaming
+- **Multi-user Sessions** - Concurrent experiment tracking
+- **Authentication** - Token-based access control
+- **Persistence** - SQLite/PostgreSQL backend for run history
+- **Metrics Aggregation** - Cross-run analytics
+
+### Testing
+
+**File:** `crates/ogd/src/lib.rs` (tests section)
+
+```bash
+# Run ogd tests
+cargo test -p ogd
+```
+
+Key tests:
+- `default_bind_addr_stays_on_localhost_port_8787` - Validates bind address format
+- `start_returns_ok_for_default_bind_addr` - Ensures startup succeeds
+- `start_returns_ok_for_custom_bind_addr` - Tests custom address override
+
+## Agent Daemon (Python)
+
+### Overview
+
+The agent daemon is the active daemon component that provides:
+
+1. **Unix Socket Server** - JSON-RPC style protocol
+2. **Training Process Management** - Subprocess control
+3. **LLM Integration** - OpenAI API communication
+4. **Code Refactoring** - Automated fixes
+5. **Run State Monitoring** - Metrics and log aggregation
+
+### Installation
+
+```bash
+# Install with uv (recommended)
+uv pip install -e python/agent-chat/
+
+# Or with pip
+pip install -e python/agent-chat/
+```
+
+### Starting the Daemon
+
+#### Manual Start (Separate Terminal)
+
+```bash
+# Set OpenAI API key
+export OPENAI_API_KEY="your-key"
+
+# Start daemon
+python3 -m og_agent_chat.server \
+  --training-file train.py \
+  --codebase-root . \
+  --run-dir runs/
+```
+
+#### With Auto Mode
+
+```bash
+python3 -m og_agent_chat.server \
+  --training-file train.py \
+  --codebase-root . \
+  --run-dir runs/ \
+  --auto
+```
+
+Auto mode enables autonomous refactoring without user approval.
+
+#### Automatic Start via ogtui
+
+ogtui can spawn the agent daemon automatically when `--training-file` is provided:
+
+```bash
+cargo run -p ogtui -- \
+  --training-file train.py \
+  --codebase-root . \
+  --path runs/ \
+  --start-training \
+  --auto
+```
+
+The daemon is automatically terminated when ogtui exits.
+
+### Socket Path
+
+**Default:** `/tmp/opengraphs-ogd.sock`
+
+**Override:**
+```bash
+export OGD_SOCKET=/custom/path/ogd.sock
+```
+
+Or via CLI:
+```bash
+python3 -m og_agent_chat.server \
+  --socket /custom/path/ogd.sock \
+  ...
+```
+
+### Protocol Commands
+
+The agent daemon implements a JSON-RPC style protocol over Unix sockets.
+
+#### ping
+
+**Purpose:** Health check
+
+**Request:**
+```json
+{"type": "ping"}
+```
+
+**Response:**
+```json
+{"ok": true, "type": "pong"}
+```
+
+**Rust Client:**
+```rust
+let connected = socket_client::ping(&daemon_socket)?;
+```
+
+#### get_chat_history
+
+**Purpose:** Retrieve conversation history
+
+**Request:**
+```json
+{"type": "get_chat_history"}
+```
+
+**Response:**
+```json
+{
+  "ok": true,
+  "chat_history": [
+    {
+      "sender": "user",
+      "content": "fix the loss",
+      "timestamp": 1234567890.5
+    },
+    {
+      "sender": "agent",
+      "content": "Analyzing...",
+      "timestamp": 1234567891.2
+    }
+  ]
+}
+```
+
+**Rust Client:**
+```rust
+let history = socket_client::get_chat_history(&daemon_socket)?;
+```
+
+#### chat_message
+
+**Purpose:** Send user message and get AI response
+
+**Request:**
+```json
+{
+  "type": "chat_message",
+  "content": "why is the loss spiking?"
+}
+```
+
+**Response:**
+```json
+{
+  "ok": true,
+  "response": {
+    "diagnosis": "Learning rate too high at step 1000",
+    "action": "Reduce LR to 0.0001",
+    "code_changes": "diff --git a/train.py...",
+    "raw_output": "LLM reasoning..."
+  },
+  "chat_history": [/* updated history */]
+}
+```
+
+**Rust Client:**
+```rust
+let (plan, history) = socket_client::send_chat_message("fix loss", &daemon_socket)?;
+```
+
+#### apply_refactor
+
+**Purpose:** Execute approved code changes
+
+**Request:**
+```json
+{
+  "type": "apply_refactor",
+  "diagnosis": "Learning rate too high",
+  "action": "Reduce LR",
+  "code_changes": "diff --git...",
+  "raw_output": "reasoning"
+}
+```
+
+**Response:**
+```json
+{
+  "ok": true,
+  "success": true,
+  "chat_history": [/* updated */]
+}
+```
+
+**Rust Client:**
+```rust
+let (success, history) = socket_client::apply_refactor(&plan, &daemon_socket)?;
+```
+
+#### set_training_file
+
+**Purpose:** Update target training script
+
+**Request:**
+```json
+{
+  "type": "set_training_file",
+  "path": "/path/to/train.py"
+}
+```
+
+**Response:**
+```json
+{"ok": true}
+```
+
+#### set_auto_mode
+
+**Purpose:** Toggle autonomous refactoring
+
+**Request:**
+```json
+{
+  "type": "set_auto_mode",
+  "enabled": true
+}
+```
+
+**Response:**
+```json
+{
+  "ok": true,
+  "auto_mode": true
+}
+```
+
+**Rust Client:**
+```rust
+let auto_enabled = socket_client::set_auto_mode(true, &daemon_socket)?;
+```
+
+#### set_runtime
+
+**Purpose:** Switch runtime backend
+
+**Request:**
+```json
+{
+  "type": "set_runtime",
+  "runtime": "modal"
+}
+```
+
+**Response:**
+```json
+{
+  "ok": true,
+  "runtime": "modal"
+}
+```
+
+Supported runtimes: `local`, `modal`
+
+#### start_training
+
+**Purpose:** Launch training process
+
+**Request:**
+```json
+{"type": "start_training"}
+```
+
+**Response:**
+```json
+{"ok": true}
+```
+
+Starts training with current `run_state` configuration.
+
+#### get_run_state
+
+**Purpose:** Fetch current metrics and logs
+
+**Request:**
+```json
+{
+  "type": "get_run_state",
+  "log_tail": 200,
+  "metric_tail": 64
+}
+```
+
+**Response:**
+```json
+{
+  "ok": true,
+  "run_state": {
+    "metrics": {"loss": 0.42},
+    "logs": ["line 1", "line 2"],
+    "alerts": [],
+    "current_step": 100,
+    "auto_mode": false,
+    "runtime": "local",
+    "runtime_status": "running",
+    "runtime_id": "run-123",
+    "runtime_failure_reason": null,
+    "runtime_error_type": null,
+    "runtime_restarts": 0,
+    "runtime_last_heartbeat": 1234567890.5,
+    "runtime_last_exit_code": null
+  }
+}
+```
+
+**Rust Client:**
+```rust
+let run_state = socket_client::get_run_state(&daemon_socket)?;
+```
+
+### Error Handling
+
+**Error Response:**
+```json
+{
+  "ok": false,
+  "error": "Training file not found"
+}
+```
+
+**Rust Error Types:**
+```rust
+pub enum ClientError {
+    SocketNotFound(PathBuf),
+    ConnectionFailed(std::io::Error),
+    SendFailed(std::io::Error),
+    RecvFailed(std::io::Error),
+    InvalidResponse(String),
+    DaemonError(String),
+}
+```
+
+### Timeouts
+
+- **Read Timeout:** 30 seconds
+- **Write Timeout:** 5 seconds
+
+Configured in `socket_client.rs:send_request()`
+
+### Python Discovery
+
+ogtui automatically finds a Python interpreter to spawn the agent daemon:
+
+**Search Order:**
+1. `OG_PYTHON_BIN` environment variable
+2. `VIRTUAL_ENV/bin/python3`
+3. `VIRTUAL_ENV/bin/python`
+4. `.venv/bin/python3` (in codebase root)
+5. `.venv/bin/python`
+6. `python3` (system)
+7. `python` (system)
+
+**Implementation:** `crates/ogtui/src/main.rs:find_python()`
+
+### Stopping the Daemon
+
+#### When Started by ogtui
+
+Daemon is automatically killed when ogtui exits:
+
+```rust
+if let Some(ref mut child) = daemon_child {
+    let _ = child.kill();
+    let _ = child.wait();
+}
+```
+
+#### When Started Manually
+
+```bash
+# Find daemon PID
+ps aux | grep og_agent_chat
+
+# Kill daemon
+kill <PID>
+```
+
+Or use the socket to detect if it's running:
+```bash
+ls -la /tmp/opengraphs-ogd.sock
+```
+
+### Logs
+
+The agent daemon currently sends logs to stdout/stderr. When spawned by ogtui, these are redirected to `/dev/null`:
+
+```rust
+cmd.stdout(Stdio::null())
+   .stderr(Stdio::null());
+```
+
+To see daemon logs during development, start it manually in a separate terminal.
+
+### Testing
+
+The socket client has comprehensive tests in `crates/ogtui/src/socket_client.rs`:
+
+```bash
+# Run socket client tests
+cargo test -p ogtui socket_client
+```
+
+Key tests:
+- `send_request_returns_socket_not_found_for_missing_socket`
+- `ping_round_trips_over_the_socket_protocol`
+- `get_chat_history_parses_messages_from_the_daemon`
+- `send_chat_message_round_trips_request_and_structured_response`
+- `apply_refactor_sends_plan_fields_and_returns_history`
+- `get_run_state_parses_run_state_payloads`
+- `send_request_surfaces_daemon_errors`
+
+Tests use a temporary Unix socket and mock server.
+
+## Troubleshooting
+
+### Socket Not Found
+
+**Error:**
+```
+Socket not found: /tmp/opengraphs-ogd.sock
+```
+
+**Solution:**
+- Ensure agent daemon is running
+- Check `OGD_SOCKET` environment variable
+- Verify socket file permissions
+
+### Connection Refused
+
+**Error:**
+```
+Connection failed: Connection refused
+```
+
+**Solution:**
+- Daemon crashed or exited
+- Check daemon logs
+- Restart daemon
+
+### Daemon Error
+
+**Error:**
+```
+Daemon error: Training file not found
+```
+
+**Solution:**
+- Verify `--training-file` path is correct
+- Ensure file exists and is readable
+- Check codebase root path
+
+### Timeout
+
+**Error:**
+```
+Recv failed: Resource temporarily unavailable
+```
+
+**Solution:**
+- LLM API call took too long
+- Increase timeout in `socket_client.rs`
+- Check network connectivity
+- Verify OpenAI API key
+
+## Next Steps
+
+- [Architecture Overview](/advanced/architecture) - Full system design
+- [Building from Source](/advanced/building-from-source) - Development setup
+- [Contributing Guide](/advanced/contributing) - How to contribute

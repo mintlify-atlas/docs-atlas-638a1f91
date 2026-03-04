@@ -1,0 +1,465 @@
+---
+title: 'Building from Source'
+description: 'Development setup and build instructions for OpenGraphs'
+---
+
+## Prerequisites
+
+### Required
+
+- **Rust** - 1.83+ (2024 edition)
+- **Cargo** - Comes with Rust
+- **Python** - 3.9+
+- **Git** - For cloning the repository
+
+### Optional
+
+- **uv** - Fast Python package installer (recommended)
+- **Node.js** - For npm package development
+
+## Installation
+
+### Install Rust
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source $HOME/.cargo/env
+```
+
+Verify installation:
+```bash
+rustc --version
+cargo --version
+```
+
+### Install uv (Recommended)
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+Or use pip:
+```bash
+pip install uv
+```
+
+## Clone Repository
+
+```bash
+git clone https://github.com/vyomakesh0728/opengraphs.git
+cd opengraphs
+```
+
+## Build Instructions
+
+### Build All Rust Crates
+
+```bash
+# Development build
+cargo build
+
+# Release build (optimized)
+cargo build --release
+```
+
+Builds both `ogd` and `ogtui` crates.
+
+### Build Individual Crates
+
+```bash
+# Build only ogtui
+cargo build -p ogtui
+
+# Build only ogd
+cargo build -p ogd
+```
+
+### Build Locations
+
+- **Debug builds:** `target/debug/ogtui`, `target/debug/ogd`
+- **Release builds:** `target/release/ogtui`, `target/release/ogd`
+
+### Install Agent Dependencies
+
+```bash
+# Using uv (recommended)
+uv pip install -e python/agent-chat/
+
+# Or using pip
+pip install -e python/agent-chat/
+```
+
+This installs the `og_agent_chat` Python package in editable mode.
+
+## Running from Source
+
+### Run ogtui (TUI)
+
+#### Basic Usage
+
+```bash
+# View existing runs
+cargo run -p ogtui -- --path runs/
+
+# View specific run
+cargo run -p ogtui -- --path runs/my-run-123
+```
+
+#### With Agent Daemon
+
+```bash
+# Set API key
+export OPENAI_API_KEY="your-key"
+
+# Run with agent
+cargo run -p ogtui -- \
+  --training-file train.py \
+  --codebase-root . \
+  --path runs/ \
+  --start-training \
+  --auto
+```
+
+#### Advanced Example
+
+```bash
+RUN_DIR="/tmp/og-live-$(date +%s)"
+rm -f /tmp/opengraphs-ogd.sock
+
+PATH="$PWD/.venv/bin:$HOME/.local/bin:$PATH" \
+PYTHONPATH="$PWD/python/agent-chat" \
+cargo run -p ogtui -- \
+  --path "$RUN_DIR" \
+  --refresh-ms 100 \
+  --training-file /path/to/train.py \
+  --codebase-root /path/to/codebase \
+  --training-cmd "torchrun --standalone --nproc_per_node=8 train.py" \
+  --start-training \
+  --fresh-run \
+  --auto
+```
+
+### Run ogd Daemon
+
+```bash
+# Default bind address (127.0.0.1:8787)
+cargo run -p ogd
+```
+
+Note: ogd is currently a placeholder. See [Daemon Documentation](/advanced/daemon) for details.
+
+### Run Agent Daemon Manually
+
+```bash
+# Basic
+export OPENAI_API_KEY="your-key"
+python3 -m og_agent_chat.server \
+  --training-file train.py \
+  --codebase-root . \
+  --run-dir runs/
+
+# With auto mode
+python3 -m og_agent_chat.server \
+  --training-file train.py \
+  --codebase-root . \
+  --run-dir runs/ \
+  --auto
+```
+
+## Development Workflow
+
+### 1. Make Code Changes
+
+Edit files in `crates/` or `python/`
+
+### 2. Run Tests
+
+```bash
+# Run all Rust tests
+cargo test
+
+# Run tests for specific crate
+cargo test -p ogtui
+cargo test -p ogd
+
+# Run specific test
+cargo test -p ogtui socket_client::tests::ping_round_trips
+
+# Run with output
+cargo test -- --nocapture
+```
+
+### 3. Check Code Quality
+
+```bash
+# Run clippy (linter)
+cargo clippy --all-targets --all-features
+
+# Format code
+cargo fmt
+
+# Check formatting without changes
+cargo fmt -- --check
+```
+
+### 4. Build and Test
+
+```bash
+# Build
+cargo build
+
+# Test
+cargo test
+
+# Run
+cargo run -p ogtui -- --path runs/
+```
+
+### 5. Create Release Build
+
+```bash
+cargo build --release
+
+# Binaries in target/release/
+ls -lh target/release/ogtui
+ls -lh target/release/ogd
+```
+
+## Project Structure
+
+```
+opengraphs/
+├── crates/
+│   ├── ogd/              # HTTP daemon (placeholder)
+│   │   ├── src/
+│   │   │   ├── main.rs   # Entry point
+│   │   │   └── lib.rs    # Core logic
+│   │   └── Cargo.toml
+│   └── ogtui/            # Terminal UI
+│       ├── src/
+│       │   ├── main.rs   # Entry point
+│       │   ├── app.rs    # App state
+│       │   ├── ui.rs     # Rendering
+│       │   ├── socket_client.rs  # Daemon client
+│       │   └── tfevents.rs       # TensorBoard parser
+│       └── Cargo.toml
+├── python/
+│   └── agent-chat/       # AI agent daemon
+│       ├── og_agent_chat/
+│       │   └── server.py
+│       └── pyproject.toml
+├── Cargo.toml            # Workspace config
+├── README.md
+└── CHANGELOG.md
+```
+
+## Dependencies
+
+### Rust Dependencies
+
+#### ogtui
+
+```toml
+anyhow = "1.0"          # Error handling
+clap = "4"              # CLI parsing
+crossterm = "0.28"      # Terminal manipulation
+crc32c = "0.6"          # Checksum for tfevents
+prost = "0.13"          # Protobuf parsing
+ratatui = "0.29"        # TUI framework
+serde = "1.0"           # Serialization
+serde_json = "1.0"      # JSON
+shlex = "1.3"           # Shell parsing
+```
+
+#### ogd
+
+```toml
+anyhow = "1.0.101"
+axum = "0.8.8"          # HTTP framework
+bytes = "1.11.1"
+hyper = "1.8.1"         # HTTP client/server
+hyper-util = "0.1.20"
+serde = "1.0.228"
+serde_json = "1.0.149"
+tokio = "1.49.0"        # Async runtime
+tower = "0.5.3"         # Service framework
+tracing = "0.1.44"      # Logging
+tracing-subscriber = "0.3.22"
+trackio-rs = "0.1.0"   # Telemetry
+```
+
+### Python Dependencies
+
+Defined in `python/agent-chat/pyproject.toml`
+
+Key dependencies:
+- OpenAI SDK
+- asyncio
+- Unix socket support
+
+## Environment Setup
+
+### Shell Configuration
+
+Add to `.bashrc` or `.zshrc`:
+
+```bash
+# Rust
+source $HOME/.cargo/env
+
+# OpenAI API key
+export OPENAI_API_KEY="your-key"
+
+# Custom socket path (optional)
+export OGD_SOCKET="/custom/path/ogd.sock"
+
+# Metric labels (optional)
+export OG_GRAPH_LABELS='{"train/loss":"Loss","train/acc":"Accuracy"}'
+
+# TensorBoard config (optional)
+export TB_LOG_DIR="runs/"
+export TB_LOG_EVERY=10
+export TB_LOG_HEAVY_EVERY=50
+```
+
+### Virtual Environment
+
+```bash
+# Create venv
+python3 -m venv .venv
+
+# Activate
+source .venv/bin/activate
+
+# Install agent
+uv pip install -e python/agent-chat/
+
+# Verify
+python3 -m og_agent_chat.server --help
+```
+
+## CI/CD
+
+### GitHub Actions
+
+The repository includes CI workflows (see `.github/workflows/` if present).
+
+Typical checks:
+- `cargo build`
+- `cargo test`
+- `cargo clippy`
+- `cargo fmt --check`
+
+### Release Process
+
+Releases are tagged with `vX.Y.Z` format. See [CHANGELOG.md](https://github.com/vyomakesh0728/opengraphs/blob/main/CHANGELOG.md) for version history.
+
+Current version: **0.1.7**
+
+Previous releases:
+- 0.1.6 - Removed prime runtime
+- 0.1.5 - Production hardening
+- 0.1.4 - Core features
+- 0.1.3 - Process viewer improvements
+- 0.1.2 - Release workflow fixes
+- 0.1.1 - Initial public release
+- 0.1.0 - Internal alpha
+
+## Troubleshooting
+
+### Compilation Errors
+
+**Error:** `error: could not compile`
+
+**Solution:**
+- Update Rust: `rustup update`
+- Clean build: `cargo clean && cargo build`
+- Check Rust edition: Ensure `edition = "2024"` in Cargo.toml
+
+### Dependency Conflicts
+
+**Error:** `failed to select a version`
+
+**Solution:**
+```bash
+cargo update
+cargo build
+```
+
+### Python Import Errors
+
+**Error:** `ModuleNotFoundError: No module named 'og_agent_chat'`
+
+**Solution:**
+```bash
+# Reinstall in editable mode
+uv pip install -e python/agent-chat/
+
+# Or set PYTHONPATH
+export PYTHONPATH="$PWD/python/agent-chat"
+```
+
+### Socket Permission Errors
+
+**Error:** `Permission denied`
+
+**Solution:**
+```bash
+# Remove stale socket
+rm /tmp/opengraphs-ogd.sock
+
+# Or use custom path
+export OGD_SOCKET="/tmp/my-ogd-$USER.sock"
+```
+
+### TensorBoard File Parsing
+
+**Error:** `failed to parse tfevents file`
+
+**Solution:**
+- Ensure files are valid TensorBoard format
+- Check for corrupted files
+- Use `--path` to point to correct directory
+
+## Performance Optimization
+
+### Release Builds
+
+Release builds are 10-100x faster than debug builds:
+
+```bash
+cargo build --release
+./target/release/ogtui --path runs/
+```
+
+### Profile-Guided Optimization (PGO)
+
+```bash
+# Build with PGO instrumentation
+RUSTFLAGS="-Cprofile-generate=/tmp/pgo-data" \
+  cargo build --release
+
+# Run with representative workload
+./target/release/ogtui --path runs/
+
+# Rebuild with PGO data
+RUSTFLAGS="-Cprofile-use=/tmp/pgo-data" \
+  cargo build --release
+```
+
+### Link-Time Optimization (LTO)
+
+Add to `Cargo.toml`:
+
+```toml
+[profile.release]
+lto = true
+codegen-units = 1
+```
+
+## Next Steps
+
+- [Architecture Overview](/advanced/architecture) - System design
+- [Daemon Documentation](/advanced/daemon) - ogd and agent daemon
+- [Contributing Guide](/advanced/contributing) - How to contribute
+- [CLI Reference](/cli/commands) - Command-line interface

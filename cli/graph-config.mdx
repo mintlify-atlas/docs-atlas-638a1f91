@@ -1,0 +1,223 @@
+---
+title: Graph configuration
+description: Customize which metrics are displayed and how they're labeled
+---
+
+OpenGraphs provides flexible configuration for selecting and labeling metrics in the TUI.
+
+## Metric selection
+
+By default, OpenGraphs displays all metrics found in TensorBoard event files. You can filter which metrics appear using the `--graph` flag.
+
+### JSON format
+
+Provide a JSON object with `metrics` and `sys` keys:
+
+```bash
+og run train.py --graph '{"metrics":["loss","reward"],"sys":["gpu","vram"]}'
+```
+
+**Keys:**
+- `metrics`: Array of metric name patterns to display
+- `sys`: Array of system metric patterns (GPU, memory, CPU)
+
+### Metric patterns
+
+Patterns use substring matching:
+
+```bash
+# Show all metrics containing "loss"
+--graph '{"metrics":["loss"]}'
+
+# Show train/loss and val/loss
+--graph '{"metrics":["train/loss","val/loss"]}'
+
+# Show all GPU metrics
+--graph '{"sys":["gpu"]}'
+```
+
+<Tip>
+Use `og list metrics --run <id>` to see available metric names before filtering.
+</Tip>
+
+## Metric labels
+
+Customize how metric names appear in the TUI with `--graph-labels`.
+
+### JSON format
+
+Map metric names to display labels:
+
+```bash
+og run train.py --graph-labels '{"train/loss":"Loss","train/accuracy":"Accuracy"}'
+```
+
+**Example output:**
+```
+┌─ Loss ──────────────┐  ┌─ Accuracy ──────────┐
+│                     │  │                     │
+│     ╱─╲             │  │         ╱───────   │
+│    ╱   ╲            │  │        ╱           │
+│   ╱     ╲───        │  │   ────╱            │
+└─────────────────────┘  └─────────────────────┘
+```
+
+### CSV format
+
+For simpler cases, use CSV-style mapping:
+
+```bash
+og run train.py --graph-labels "train/loss=Loss,train/accuracy=Accuracy"
+```
+
+This is equivalent to the JSON format above.
+
+### Environment variable
+
+Set labels once for all runs:
+
+```bash
+export OG_GRAPH_LABELS='{"train/loss":"Loss","train/accuracy":"Accuracy"}'
+og run train.py  # Labels applied automatically
+```
+
+<Note>
+The environment variable is read from `OG_GRAPH_LABELS` as defined in the source.
+</Note>
+
+## Combining selection and labels
+
+Use both flags together for complete control:
+
+```bash
+og run train.py \
+  --graph '{"metrics":["train/loss","val/loss"]}' \
+  --graph-labels '{"train/loss":"Training Loss","val/loss":"Validation Loss"}'
+```
+
+This will:
+1. Show only training and validation loss
+2. Display them with readable labels
+
+## Configuration precedence
+
+Labels are applied in this order (last wins):
+
+1. Default (raw metric name)
+2. `OG_GRAPH_LABELS` environment variable
+3. `--graph-labels` command-line flag
+
+## Examples
+
+### Language model training
+
+```bash
+og run train_gpt.py \
+  --graph '{"metrics":["loss","perplexity","grad_norm"]}' \
+  --graph-labels '{"train/loss":"Loss","train/perplexity":"PPL","train/grad_norm":"Grad Norm"}'
+```
+
+### Computer vision
+
+```bash
+og run train_resnet.py \
+  --graph '{"metrics":["loss","accuracy","top5"]}' \
+  --graph-labels '{"train/loss":"Loss","val/accuracy":"Acc@1","val/top5":"Acc@5"}'
+```
+
+### Reinforcement learning
+
+```bash
+og run train_ppo.py \
+  --graph '{"metrics":["reward","policy_loss","value_loss"]}' \
+  --graph-labels '{"reward":"Reward","policy_loss":"π Loss","value_loss":"V Loss"}'
+```
+
+### System monitoring only
+
+```bash
+og run train.py \
+  --graph '{"metrics":[],"sys":["gpu_util","vram","cpu"]}' \
+  --graph-labels '{"gpu_util":"GPU %","vram":"VRAM","cpu":"CPU %"}'
+```
+
+## Advanced patterns
+
+### Hierarchical metrics
+
+For metrics with prefixes like `train/` and `val/`, you can create organized views:
+
+```bash
+--graph '{"metrics":["train/","val/"]}'
+```
+
+This shows all training and validation metrics.
+
+### Regex-style patterns
+
+While OpenGraphs doesn't support full regex, you can use specific substring patterns:
+
+```bash
+# Show all loss metrics (train_loss, val_loss, test_loss)
+--graph '{"metrics":["loss"]}'
+
+# Show all accuracy metrics
+--graph '{"metrics":["acc"]}'
+```
+
+## Troubleshooting
+
+### Labels not appearing
+
+**Check JSON syntax:**
+```bash
+# Invalid (single quotes inside)
+--graph-labels '{"train/loss":'Loss'}'
+
+# Valid (escaped or use CSV)
+--graph-labels '{"train/loss":"Loss"}'
+--graph-labels "train/loss=Loss"
+```
+
+**Verify metric names:**
+Use `og list metrics` to see exact names:
+```bash
+og list metrics --run run-1234
+```
+
+### Metrics not filtered
+
+**Pattern matching:**
+Patterns are case-sensitive and use substring matching:
+```bash
+# Won't match "Train/Loss"
+--graph '{"metrics":["train/loss"]}'
+
+# Will match "Train/Loss"
+--graph '{"metrics":["Loss"]}'
+```
+
+## Source reference
+
+Graph configuration is defined in `crates/ogtui/src/main.rs`:
+
+```rust
+/// Graph selection JSON
+#[arg(long = "graph")]
+graph: Option<String>,
+
+/// Metric display labels
+#[arg(long, env = "OG_GRAPH_LABELS")]
+graph_labels: Option<String>,
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Tracking experiments" icon="chart-line" href="/guides/tracking-experiments">
+    Learn how metrics are collected and displayed
+  </Card>
+  <Card title="TUI interface" icon="terminal" href="/guides/tui-interface">
+    Navigate the graphs tab and view metrics
+  </Card>
+</CardGroup>

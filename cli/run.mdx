@@ -1,0 +1,277 @@
+---
+title: 'og run'
+description: 'Launch training run in TUI with live monitoring and agent support'
+---
+
+## Overview
+
+The `og run` command launches a training file in the OpenGraphs TUI (Terminal User Interface) with live metric monitoring, process tracking, and optional AI agent support for debugging and optimization.
+
+## Syntax
+
+```bash
+og run <file> [OPTIONS]
+```
+
+## Arguments
+
+<ParamField path="file" type="path" required>
+  Training file to run (e.g., `train.py`, `train_gpt.py`)
+</ParamField>
+
+## Options
+
+### Run Directory
+
+<ParamField path="--path" type="path" default="runs/">
+  Path to run directory where .tfevents files are written/read
+  
+  **Example:**
+  ```bash
+  og run train.py --path experiments/
+  ```
+</ParamField>
+
+### Graph Configuration
+
+<ParamField path="--graph" type="json">
+  Graph selection JSON specifying which metrics to display
+  
+  **Format:** `{"metrics":["loss","reward"],"sys":["gpu","vram"]}`
+  
+  **Examples:**
+  ```bash
+  # Display loss and reward metrics
+  og run train.py --graph '{"metrics":["loss","reward"]}'
+  
+  # Display GPU and VRAM system metrics
+  og run train.py --graph '{"sys":["gpu","vram"]}'
+  
+  # Combine both
+  og run train.py --graph '{"metrics":["loss"],"sys":["gpu"]}'
+  ```
+</ParamField>
+
+<ParamField path="--graph-labels" type="json|csv">
+  Metric display labels for cleaner visualization
+  
+  **JSON format:** `{"train/loss":"Loss","train/accuracy":"Accuracy"}`
+  
+  **CSV format:** `train/loss=Loss,train/accuracy=Accuracy`
+  
+  **Environment variable:** `OG_GRAPH_LABELS`
+  
+  **Examples:**
+  ```bash
+  # JSON format
+  og run train.py --graph-labels '{"train/loss":"Loss"}'
+  
+  # CSV format
+  og run train.py --graph-labels "train/loss=Loss,train/acc=Acc"
+  
+  # Via environment variable
+  export OG_GRAPH_LABELS='{"train/loss":"Loss"}'
+  og run train.py
+  ```
+</ParamField>
+
+### Agent Configuration
+
+<ParamField path="--prompt" type="string">
+  Optional prompt sent to the agent after startup
+  
+  **Example:**
+  ```bash
+  og run train.py --prompt "Monitor loss and alert if it increases"
+  ```
+</ParamField>
+
+<ParamField path="--auto" type="enum" default="suggest">
+  Auto mode policy for agent behavior
+  
+  **Values:**
+  - `observe` - Agent only observes, no actions
+  - `suggest` - Agent suggests fixes (default)
+  - `supervised` - Agent requires approval for actions
+  - `autonomous` - Agent applies fixes automatically
+  
+  **Examples:**
+  ```bash
+  # Autonomous mode - agent fixes issues automatically
+  og run train.py --auto autonomous
+  
+  # Suggest mode - agent only suggests fixes
+  og run train.py --auto suggest
+  ```
+</ParamField>
+
+### Runtime Configuration
+
+<ParamField path="--runtime" type="enum" default="local">
+  Runtime backend for training control
+  
+  **Values:**
+  - `local` - Run locally (default)
+  - `modal` - Run on Modal (experimental)
+  
+  **Example:**
+  ```bash
+  og run train.py --runtime local
+  og run train.py --runtime modal
+  ```
+</ParamField>
+
+<ParamField path="--training-cmd" type="string">
+  Command used to launch training process
+  
+  **Example:**
+  ```bash
+  og run train.py --training-cmd "torchrun --standalone --nproc_per_node=8 train.py"
+  ```
+</ParamField>
+
+<ParamField path="--codebase-root" type="path" default=".">
+  Codebase root for agent indexing
+  
+  **Example:**
+  ```bash
+  og run train.py --codebase-root /home/user/project
+  ```
+</ParamField>
+
+### Socket Configuration
+
+<ParamField path="--socket" type="path">
+  Unix socket path for daemon communication
+  
+  **Environment variable:** `OGD_SOCKET`
+  
+  **Example:**
+  ```bash
+  og run train.py --socket /tmp/opengraphs-ogd.sock
+  ```
+</ParamField>
+
+### Display Configuration
+
+<ParamField path="--refresh-ms" type="integer" default="1000">
+  Refresh interval for live reload in milliseconds (0 disables live reload)
+  
+  **Example:**
+  ```bash
+  og run train.py --refresh-ms 500  # Refresh every 500ms
+  og run train.py --refresh-ms 0    # Disable auto-refresh
+  ```
+</ParamField>
+
+### Process Monitoring
+
+<ParamField path="--procs-sort" type="enum" default="cpu">
+  Sort key used in the procs tab
+  
+  **Values:** `cpu`, `mem`, `pid`, `elapsed`
+  
+  **Example:**
+  ```bash
+  og run train.py --procs-sort mem
+  ```
+</ParamField>
+
+<ParamField path="--procs-interval-ms" type="integer" default="1000">
+  Process sampling interval in milliseconds (0 disables process polling)
+  
+  **Example:**
+  ```bash
+  og run train.py --procs-interval-ms 2000
+  ```
+</ParamField>
+
+<ParamField path="--procs-limit" type="integer" default="300">
+  Maximum number of running/exited processes retained in the procs tab
+  
+  **Example:**
+  ```bash
+  og run train.py --procs-limit 500
+  ```
+</ParamField>
+
+## Examples
+
+### Basic Usage
+
+```bash
+# Run training script with default settings
+og run train.py
+```
+
+### With Custom Run Directory
+
+```bash
+# Store metrics in custom directory
+og run train.py --path experiments/run-001
+```
+
+### With Graph Filtering
+
+```bash
+# Show only loss and reward metrics
+og run train.py --graph '{"metrics":["loss","reward"]}'
+
+# Show GPU and VRAM system metrics
+og run train.py --graph '{"sys":["gpu","vram"]}'
+```
+
+### With Autonomous Agent
+
+```bash
+# Agent automatically fixes issues
+og run train.py --auto autonomous
+
+# Agent suggests fixes but doesn't apply
+og run train.py --auto suggest
+```
+
+### With Custom Training Command
+
+```bash
+# Using torchrun for distributed training
+og run train_gpt.py \
+  --training-cmd "torchrun --standalone --nproc_per_node=8 train_gpt.py"
+```
+
+### Complete Example
+
+```bash
+# Full configuration with all common options
+og run train.py \
+  --path runs/experiment-001 \
+  --graph '{"metrics":["loss","accuracy"],"sys":["gpu"]}' \
+  --graph-labels '{"train/loss":"Loss","train/accuracy":"Acc"}' \
+  --auto autonomous \
+  --runtime local \
+  --refresh-ms 500 \
+  --procs-sort cpu
+```
+
+## Output
+
+The command launches an interactive TUI with:
+
+- **Graphs tab**: Real-time metric visualization
+- **Events tab**: Training event log
+- **Chat tab**: AI agent interaction
+- **Procs tab**: Process monitoring
+
+## Notes
+
+- The TUI automatically creates a new `run-<timestamp>` subdirectory when `--path` points to an existing directory with previous runs
+- Press `q` to exit the TUI
+- Use arrow keys or `j/k` to navigate between tabs
+- The agent requires `OPENAI_API_KEY` environment variable
+- Graph labels can be set once via `OG_GRAPH_LABELS` environment variable
+
+## Related Commands
+
+- [`og tail`](/cli/tail) - View logs from a run
+- [`og list runs`](/cli/list#list-runs) - List all training runs
+- [`og get run`](/cli/get#get-run) - Get run summary

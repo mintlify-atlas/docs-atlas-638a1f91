@@ -1,97 +1,234 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: OpenGraphs Documentation
+description: Local-first, TUI-native experiment tracking for AI runs over SSH
+mode: custom
 ---
 
-## Setting up
+<div className="relative overflow-hidden bg-gradient-to-br from-[#0f1117] via-[#1a1d27] to-[#0f1117] dark:from-[#0f1117] dark:via-[#1a1d27] dark:to-[#0f1117] py-20">
+  <div className="absolute inset-0 bg-[linear-gradient(to_right,#27272a_1px,transparent_1px),linear-gradient(to_bottom,#27272a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,#000_70%,transparent_110%)] opacity-20"></div>
+  
+  <div className="relative max-w-7xl mx-auto px-6 sm:px-8">
+    <div className="lg:grid lg:grid-cols-12 lg:gap-8 items-center">
+      <div className="lg:col-span-7">
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-tight">
+          Track ML experiments in your terminal
+        </h1>
+        <p className="mt-6 text-lg sm:text-xl text-gray-400 max-w-2xl">
+          OpenGraphs is a local-first, TUI-native experiment tracking tool for AI runs. Monitor metrics, visualize training progress, and get AI-powered diagnostics—all over SSH.
+        </p>
+        <div className="mt-8 flex flex-wrap gap-4">
+          <a 
+            href="/quickstart" 
+            className="inline-flex items-center px-6 py-3 rounded-lg bg-[#94cb04] text-black font-semibold hover:bg-[#a8df05] transition-colors no-underline"
+          >
+            Get started
+            <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+            </svg>
+          </a>
+          <a 
+            href="/cli/run" 
+            className="inline-flex items-center px-6 py-3 rounded-lg border border-white/30 bg-white/10 text-white font-semibold hover:bg-white/20 transition-colors no-underline"
+          >
+            View CLI reference
+          </a>
+        </div>
+      </div>
+      <div className="hidden lg:block lg:col-span-5 mt-12 lg:mt-0">
+        <div className="relative">
+          <div className="absolute inset-0 bg-[#94cb04]/20 blur-3xl rounded-full"></div>
+          <img 
+            src="https://media.brand.dev/288cc7c4-5cef-4376-950b-bdf0083eedae.png" 
+            alt="OpenGraphs logo" 
+            className="relative w-full max-w-md mx-auto"
+            noZoom
+          />
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
-Get your documentation site up and running in minutes.
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white text-center">
+    Quick start
+  </h2>
+  <p className="mt-3 text-base text-gray-600 dark:text-gray-400 text-center max-w-2xl mx-auto">
+    Get OpenGraphs running in minutes with our one-line installer
+  </p>
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
+  <div className="mt-10">
+    <Steps>
+      <Step title="Install OpenGraphs">
+        Run the installer script to download the latest release:
+        
+        ```bash
+        curl -fsSL https://raw.githubusercontent.com/vyomakesh0728/opengraphs/main/scripts/install.sh | bash
+        ```
+        
+        Or run directly with npx (no install required):
+        
+        ```bash
+        npx -y opengraphs-cli@latest
+        ```
+      </Step>
 
-## Make it yours
+      <Step title="Track your first experiment">
+        Run your training script with OpenGraphs to start tracking metrics:
+        
+        ```bash
+        og run train.py --runtime local
+        ```
+        
+        The TUI will launch automatically, displaying real-time metrics from TensorBoard events.
+      </Step>
 
-Design a docs site that looks great and empowers your users.
+      <Step title="Explore the interface">
+        Navigate through the TUI tabs:
+        - **Graphs**: View metrics visualizations
+        - **Logs**: Monitor training output
+        - **Procs**: Track system resources
+        - **Chat**: Interact with the AI agent
+        
+        <Tip>
+          Press `q` to quit the TUI, or use keyboard shortcuts to navigate between tabs.
+        </Tip>
+      </Step>
 
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
-  </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
-  </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
-  </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
-  </Card>
-</Columns>
+      <Step title="Enable AI diagnostics">
+        Launch runs with autonomous AI agent support for automatic issue detection:
+        
+        ```bash
+        og run train.py --auto autonomous
+        ```
+        
+        The agent monitors your training metrics and suggests fixes when it detects plateaus or errors.
+      </Step>
+    </Steps>
+  </div>
+</div>
 
-## Create beautiful pages
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+    Key features
+  </h2>
+  <p className="mt-3 text-base text-gray-600 dark:text-gray-400">
+    Everything you need to track and debug ML experiments from your terminal
+  </p>
 
-Everything you need to create world-class documentation.
+  <div className="mt-10">
+    <CardGroup cols={2}>
+      <Card title="TUI-native interface" icon="terminal" href="/guides/tui-interface">
+        Full-featured terminal UI that works seamlessly over SSH. No browser required.
+      </Card>
+      <Card title="Real-time metrics" icon="chart-line" href="/guides/tracking-experiments">
+        Live visualization of training metrics from TensorBoard event files with automatic refresh.
+      </Card>
+      <Card title="AI-powered diagnostics" icon="brain" href="/guides/ai-agent">
+        Autonomous agent that monitors training and suggests code fixes when metrics plateau or degrade.
+      </Card>
+      <Card title="Process monitoring" icon="microchip" href="/guides/tui-interface">
+        Track GPU usage, memory, CPU, and system metrics alongside your training runs.
+      </Card>
+      <Card title="Multi-runtime support" icon="server" href="/cli/runtime-backends">
+        Run experiments locally or on remote infrastructure with runtime backend adapters.
+      </Card>
+      <Card title="Command-line API" icon="code" href="/cli/run">
+        Comprehensive CLI for run management, metrics queries, and comparisons.
+      </Card>
+    </CardGroup>
+  </div>
+</div>
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+    Explore by topic
+  </h2>
+  <p className="mt-3 text-base text-gray-600 dark:text-gray-400">
+    Deep dive into specific areas of OpenGraphs
+  </p>
 
-## Need inspiration?
+  <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-6">
+    <a href="/installation/curl-installer" className="group block rounded-2xl border border-gray-200 dark:border-[#27272a] hover:border-[#94cb04] dark:hover:border-[#94cb04] overflow-hidden transition-colors no-underline">
+      <div className="p-6 bg-white dark:bg-[#1a1d27]">
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white">Installation options</h3>
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+          Choose from curl installer, npx, or npm global install. Supports Linux and macOS.
+        </p>
+        <div className="mt-4 flex items-center text-sm font-medium text-[#94cb04] group-hover:text-[#94cb04]">
+          View installation guides
+          <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+      </div>
+    </a>
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+    <a href="/cli/run" className="group block rounded-2xl border border-gray-200 dark:border-[#27272a] hover:border-[#94cb04] dark:hover:border-[#94cb04] overflow-hidden transition-colors no-underline">
+      <div className="p-6 bg-white dark:bg-[#1a1d27]">
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white">CLI commands</h3>
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+          Complete reference for all commands, flags, and configuration options.
+        </p>
+        <div className="mt-4 flex items-center text-sm font-medium text-[#94cb04] group-hover:text-[#94cb04]">
+          Browse CLI reference
+          <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+      </div>
+    </a>
+
+    <a href="/guides/tensorboard-integration" className="group block rounded-2xl border border-gray-200 dark:border-[#27272a] hover:border-[#94cb04] dark:hover:border-[#94cb04] overflow-hidden transition-colors no-underline">
+      <div className="p-6 bg-white dark:bg-[#1a1d27]">
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white">TensorBoard integration</h3>
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+          Learn how OpenGraphs reads and visualizes TensorBoard event files in real-time.
+        </p>
+        <div className="mt-4 flex items-center text-sm font-medium text-[#94cb04] group-hover:text-[#94cb04]">
+          Read the guide
+          <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+      </div>
+    </a>
+
+    <a href="/advanced/architecture" className="group block rounded-2xl border border-gray-200 dark:border-[#27272a] hover:border-[#94cb04] dark:hover:border-[#94cb04] overflow-hidden transition-colors no-underline">
+      <div className="p-6 bg-white dark:bg-[#1a1d27]">
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white">Architecture</h3>
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+          Understand how OpenGraphs works under the hood—daemon, TUI, and agent components.
+        </p>
+        <div className="mt-4 flex items-center text-sm font-medium text-[#94cb04] group-hover:text-[#94cb04]">
+          Explore architecture
+          <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+      </div>
+    </a>
+  </div>
+</div>
+
+<div className="mt-20 mb-16 max-w-5xl mx-auto px-6">
+  <div className="rounded-2xl border border-gray-200 dark:border-[#27272a] bg-gradient-to-br from-white to-gray-50 dark:from-[#1a1d27] dark:to-[#0f1117] p-8 sm:p-12">
+    <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white text-center">
+      Ready to start tracking?
+    </h2>
+    <p className="mt-4 text-base text-gray-600 dark:text-gray-400 text-center max-w-2xl mx-auto">
+      Install OpenGraphs and start monitoring your ML experiments in minutes. No cloud signup required—everything runs locally.
+    </p>
+    <div className="mt-8 flex justify-center">
+      <a 
+        href="/quickstart" 
+        className="inline-flex items-center px-8 py-4 rounded-lg bg-[#94cb04] text-black text-lg font-semibold hover:bg-[#a8df05] transition-colors no-underline"
+      >
+        Get started now
+        <svg className="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+        </svg>
+      </a>
+    </div>
+  </div>
+</div>
