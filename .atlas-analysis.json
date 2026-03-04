@@ -1,0 +1,102 @@
+{
+  "projectType": "cli-tool",
+  "projectName": "OpenGraphs",
+  "projectDescription": "Local-first, TUI-native experiment tracking for AI runs over SSH",
+  "theme": "aspen",
+  "primaryColor": "#94cb04",
+  "lightColor": "#545454",
+  "darkColor": null,
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Get Started",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": ["introduction"]
+          },
+          {
+            "group": "Installation",
+            "pages": ["installation/curl-installer", "installation/npx", "installation/npm"]
+          },
+          {
+            "group": "Quick Start",
+            "pages": ["quickstart"]
+          }
+        ]
+      },
+      {
+        "tab": "CLI Reference",
+        "groups": [
+          {
+            "group": "Commands",
+            "pages": [
+              "cli/run",
+              "cli/tail",
+              "cli/resume",
+              "cli/list",
+              "cli/get",
+              "cli/compare",
+              "cli/search"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": ["cli/runtime-backends", "cli/graph-config", "cli/environment-variables"]
+          }
+        ]
+      },
+      {
+        "tab": "Guides",
+        "groups": [
+          {
+            "group": "Usage",
+            "pages": [
+              "guides/tracking-experiments",
+              "guides/tui-interface",
+              "guides/ai-agent",
+              "guides/remote-training"
+            ]
+          },
+          {
+            "group": "Integration",
+            "pages": ["guides/tensorboard-integration", "guides/python-api"]
+          }
+        ]
+      },
+      {
+        "tab": "Advanced",
+        "groups": [
+          {
+            "group": "Architecture",
+            "pages": ["advanced/architecture", "advanced/daemon"]
+          },
+          {
+            "group": "Development",
+            "pages": ["advanced/building-from-source", "advanced/contributing"]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "TUI-native experiment tracking over SSH",
+    "Real-time metrics visualization from TensorBoard events",
+    "AI agent for automatic training diagnostics and fixes",
+    "Multi-runtime support (local, modal)",
+    "Process monitoring and system metrics tracking",
+    "Command-line interface for run management"
+  ],
+  "publicApiSurface": [
+    "og run <script> [--runtime local|modal] [--auto observe|suggest|supervised|autonomous]",
+    "og tail <run-id|log-path>",
+    "og resume <run-id> --checkpoint latest",
+    "og list projects|runs|metrics|system-metrics",
+    "og get run|metric --project <p> --run <r>",
+    "og compare --runs r1,r2 --metric <m>",
+    "og search metrics --query <pattern>",
+    "Python API: og_agent_chat.client.send_metric()",
+    "Daemon API: ogd (Unix socket communication)",
+    "TUI: ogtui --path <runs-dir> [options]"
+  ]
+}
